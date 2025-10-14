@@ -1,5 +1,5 @@
 import os
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory, redirect
 from .s3_utils import (
     get_allowed_buckets,
     list_objects_page,
@@ -8,6 +8,7 @@ from .s3_utils import (
     smart_cleanup,
     cleanup_candidates,
     delete_keys,
+    client_for_bucket,
 )
 
 
@@ -114,6 +115,27 @@ def create_app():
     @app.get("/")
     def index():
         return send_from_directory(app.static_folder, "index.html")
+
+    @app.get("/api/buckets/<bucket>/download")
+    def download_object(bucket):
+        if not _ensure_allowed(bucket):
+            return jsonify({"error": "Bucket not allowed"}), 400
+        key = request.args.get("key")
+        if not key:
+            return jsonify({"error": "Missing key"}), 400
+        disposition = request.args.get("disposition", default="attachment")
+        try:
+            s3 = client_for_bucket(bucket)
+            filename = key.split("/")[-1] or "download"
+            params = {
+                "Bucket": bucket,
+                "Key": key,
+                "ResponseContentDisposition": f"{disposition}; filename=\"{filename}\"",
+            }
+            url = s3.generate_presigned_url("get_object", Params=params, ExpiresIn=300)
+            return redirect(url, code=302)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
 
     return app
 

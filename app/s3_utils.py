@@ -140,6 +140,11 @@ def _client_for_bucket(bucket: str):
     raise RuntimeError("No S3 clients configured")
 
 
+def client_for_bucket(bucket: str):
+    """Public wrapper to resolve an S3 client for a given bucket."""
+    return _client_for_bucket(bucket)
+
+
 def list_objects_page(
     bucket: str,
     prefix: Optional[str] = None,

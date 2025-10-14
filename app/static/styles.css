@@ -50,9 +50,11 @@ aside#sidebar li { padding: 8px; cursor: pointer; border-radius: 6px; }
 aside#sidebar li:hover { background: var(--hover); }
 
 section#content { flex: 1; padding: 16px; }
-#bucket-actions { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+#bucket-actions { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
 #bucket-actions.hidden { display: none; }
+#bucket-actions .actions-row { display: flex; align-items: center; gap: 12px; }
 #bucket-title { margin: 0; margin-right: auto; }
+#breadcrumbs { color: var(--muted); font-size: 14px; margin-left: 2px; }
 
 button { background: var(--button); color: var(--text); border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
 button:hover { background: var(--button-hover); }
@@ -67,7 +69,6 @@ tbody tr:hover { background: var(--hover); }
 #listing .overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.12); z-index: 10; }
 #listing .overlay.hidden { display: none; }
 
-#breadcrumbs { color: var(--muted); font-size: 14px; }
 #pager { margin-top: 8px; display: flex; gap: 8px; }
 
 #status { background: var(--sidebar); color: var(--accent); padding: 12px; border-radius: 6px; margin-top: 12px; white-space: pre-wrap; min-height: 1lh; }
@@ -77,6 +78,7 @@ tbody tr:hover { background: var(--hover); }
 .link { color: var(--link); cursor: pointer; }
 .link:hover { color: var(--link-hover); text-decoration: underline; }
 .smart-del { color: var(--danger); font-size: 0.95em; }
+.icon-link { text-decoration: none; margin-right: 6px; }
 
 /* Icon-only small header button */
 .icon-btn { width: 40px; text-align: center; font-size: 18px; padding: 6px; }

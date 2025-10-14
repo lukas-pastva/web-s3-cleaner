@@ -3,12 +3,15 @@ const rowsEl = document.getElementById('rows');
 const statusEl = document.getElementById('status');
 const bucketTitleEl = document.getElementById('bucket-title');
 const bucketActionsEl = document.getElementById('bucket-actions');
+const titleSpinner = document.getElementById('title-spinner');
+const listingOverlay = document.getElementById('listing-overlay');
 const breadcrumbsEl = document.getElementById('breadcrumbs');
 const btnCleanup = document.getElementById('btn-cleanup');
 const btnDeleteAll = document.getElementById('btn-delete-all');
 const btnSmartCleanup = document.getElementById('btn-smart-cleanup');
 const btnPrev = document.getElementById('prev');
 const btnNext = document.getElementById('next');
+const bucketsSpinner = document.getElementById('buckets-spinner');
 const themeToggle = document.getElementById('theme-toggle');
 // Preview panel elements
 const previewPanel = document.getElementById('preview-panel');
@@ -94,15 +97,20 @@ function setStatus(msg, isError = false) {
 }
 
 async function loadBuckets() {
-  const res = await fetch('/api/buckets');
-  const data = await res.json();
-  bucketsEl.innerHTML = '';
-  data.buckets.forEach(b => {
-    const li = document.createElement('li');
-    li.textContent = b;
-    li.onclick = () => selectBucket(b);
-    bucketsEl.appendChild(li);
-  });
+  try {
+    bucketsSpinner && bucketsSpinner.classList.remove('hidden');
+    const res = await fetch('/api/buckets');
+    const data = await res.json();
+    bucketsEl.innerHTML = '';
+    data.buckets.forEach(b => {
+      const li = document.createElement('li');
+      li.textContent = b;
+      li.onclick = () => selectBucket(b);
+      bucketsEl.appendChild(li);
+    });
+  } finally {
+    bucketsSpinner && bucketsSpinner.classList.add('hidden');
+  }
 }
 
 function renderBreadcrumbs() {
@@ -128,40 +136,48 @@ function renderBreadcrumbs() {
 async function loadListing(token) {
   if (!state.bucket) return;
   setStatus('');
-  const params = new URLSearchParams();
-  if (state.prefix) params.set('prefix', state.prefix);
-  if (token) params.set('token', token);
-  const res = await fetch(`/api/buckets/${encodeURIComponent(state.bucket)}/list?${params.toString()}`);
-  const data = await res.json();
-  if (data.error) {
-    setStatus(`Error: ${data.error}`, true);
-    return;
+  titleSpinner && titleSpinner.classList.remove('hidden');
+  listingOverlay && listingOverlay.classList.remove('hidden');
+  try {
+    const params = new URLSearchParams();
+    if (state.prefix) params.set('prefix', state.prefix);
+    if (token) params.set('token', token);
+    const res = await fetch(`/api/buckets/${encodeURIComponent(state.bucket)}/list?${params.toString()}`);
+    const data = await res.json();
+    if (data.error) {
+      setStatus(`Error: ${data.error}`, true);
+      return;
+    }
+    rowsEl.innerHTML = '';
+    // folders first
+    data.folders.forEach(f => {
+      const name = f.replace(state.prefix, '').replace(/\/$/, '');
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td><span class="link">📁 ${name}</span></td><td></td><td></td>`;
+      tr.querySelector('.link').onclick = () => {
+        state.prefix = f; state.tokenStack = []; state.nextToken = null; loadListing();
+      };
+      rowsEl.appendChild(tr);
+    });
+    // objects
+    data.objects.forEach(o => {
+      const name = o.key.replace(state.prefix, '');
+      const tr = document.createElement('tr');
+      tr.setAttribute('data-key', o.key);
+      const dl = `/api/buckets/${encodeURIComponent(state.bucket)}/download?key=${encodeURIComponent(o.key)}`;
+      tr.innerHTML = `<td class="name-cell"><a class="icon-link" href="${dl}" title="Download" target="_blank" rel="noopener">⬇️</a> ${name}</td><td>${fmtBytes(o.size)}</td><td>${o.last_modified || ''}</td>`;
+      rowsEl.appendChild(tr);
+    });
+    state.nextToken = data.next_token || null;
+    btnNext.disabled = !state.nextToken;
+    btnPrev.disabled = state.tokenStack.length === 0;
+    renderBreadcrumbs();
+  } finally {
+    listingOverlay && listingOverlay.classList.add('hidden');
   }
-  rowsEl.innerHTML = '';
-  // folders first
-  data.folders.forEach(f => {
-    const name = f.replace(state.prefix, '').replace(/\/$/, '');
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td><span class="link">📁 ${name}</span></td><td></td><td></td>`;
-    tr.querySelector('.link').onclick = () => {
-      state.prefix = f; state.tokenStack = []; state.nextToken = null; loadListing();
-    };
-    rowsEl.appendChild(tr);
-  });
-  // objects
-  data.objects.forEach(o => {
-    const name = o.key.replace(state.prefix, '');
-    const tr = document.createElement('tr');
-    tr.setAttribute('data-key', o.key);
-    tr.innerHTML = `<td class="name-cell">${name}</td><td>${fmtBytes(o.size)}</td><td>${o.last_modified || ''}</td>`;
-    rowsEl.appendChild(tr);
-  });
-  state.nextToken = data.next_token || null;
-  btnNext.disabled = !state.nextToken;
-  btnPrev.disabled = state.tokenStack.length === 0;
-  renderBreadcrumbs();
-  // annotate smart-cleanup deletions for visible objects
-  annotateSmartMarkers().catch(() => {});
+  // annotate smart-cleanup deletions for visible objects (keep small spinner visible)
+  try { await annotateSmartMarkers(); }
+  finally { titleSpinner && titleSpinner.classList.add('hidden'); }
 }
 
 function selectBucket(bucket) {
