@@ -6,6 +6,7 @@ const bucketActionsEl = document.getElementById('bucket-actions');
 const breadcrumbsEl = document.getElementById('breadcrumbs');
 const btnCleanup = document.getElementById('btn-cleanup');
 const btnDeleteAll = document.getElementById('btn-delete-all');
+const btnSmartCleanup = document.getElementById('btn-smart-cleanup');
 const btnPrev = document.getElementById('prev');
 const btnNext = document.getElementById('next');
 
@@ -150,5 +151,22 @@ btnDeleteAll.onclick = async () => {
   await loadListing();
 };
 
-loadBuckets().catch(e => setStatus(String(e), true));
+btnSmartCleanup.onclick = async () => {
+  if (!state.bucket) return;
+  const scope = state.prefix ? `prefix "${state.prefix}"` : 'entire bucket';
+  const msg = `Smart cleanup on ${scope} in ${state.bucket}?\n\nPolicy:\n- < 7 days: keep 1 per hour\n- 7–30 days: keep 1 per day\n- 30–90 days: keep 1 per 7 days\n- 90–365 days: keep 1 per 2 weeks\n- >= 365 days: keep 1 per month\n\nProceed?`;
+  if (!confirm(msg)) return;
+  setStatus('Running smart cleanup...');
+  const params = new URLSearchParams();
+  if (state.prefix) params.set('prefix', state.prefix);
+  const res = await fetch(`/api/buckets/${encodeURIComponent(state.bucket)}/smart-cleanup?${params.toString()}`, { method: 'POST' });
+  const data = await res.json();
+  if (data.error) {
+    setStatus(`Error: ${data.error}`, true);
+    return;
+  }
+  setStatus(`Smart cleanup done. Kept ${data.kept}/${data.scanned}, deleted ${data.deleted} (planned ${data.to_delete}).`);
+  await loadListing();
+};
 
+loadBuckets().catch(e => setStatus(String(e), true));

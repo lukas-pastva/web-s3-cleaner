@@ -61,5 +61,12 @@ Notes
 -----
 - Triple confirmation for Delete ALL: two confirms + type bucket name.
 - Cleanup deletes objects with `LastModified < now - 30 days`.
+- Smart cleanup applies tiered retention within a selected prefix:
+  - < 7 days: keep 1 per hour
+  - 7–30 days: keep 1 per day
+  - 30–90 days: keep 1 per 7 days (ISO week)
+  - 90–365 days: keep 1 per 2 weeks (biweekly)
+  - >= 365 days: keep 1 per month
+  - The app selects the newest object within each time bucket.
 - Large buckets: operations can take time; backend runs synchronously. For very large buckets, consider adding background jobs and progress tracking.
 - Security: This app has no auth. Restrict network access (e.g., only within cluster) or put behind an auth proxy.

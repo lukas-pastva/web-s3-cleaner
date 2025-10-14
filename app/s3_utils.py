@@ -229,3 +229,107 @@ def cleanup_old_objects(bucket: str, days: int = 30) -> Dict:
         return {"deleted": deleted, "scanned": scanned, "batches": batches, "days": days}
     except ClientError as e:
         return {"error": str(e), "deleted": deleted, "scanned": scanned, "batches": batches, "days": days}
+
+
+def smart_cleanup(bucket: str, prefix: Optional[str] = None, dry_run: bool = False) -> Dict:
+    """
+    Apply tiered retention on objects under a prefix:
+    - < 7 days: keep 1 per hour
+    - 7–30 days: keep 1 per day
+    - 30–365 days: keep 1 per 7 days (weekly via ISO week)
+    - >= 365 days: keep 1 per month
+
+    Returns summary of scanned/kept/deleted.
+    """
+    s3 = _client_for_bucket(bucket)
+    paginator = s3.get_paginator("list_objects_v2")
+    now = datetime.now(timezone.utc)
+    scanned = 0
+
+    # Gather all objects in prefix (non-delimited, recursive)
+    objects = []
+    for page in paginator.paginate(Bucket=bucket, Prefix=(prefix or "")):
+        contents = page.get("Contents", [])
+        for o in contents:
+            key = o.get("Key")
+            if not key or key.endswith("/"):
+                continue
+            lm = o.get("LastModified")
+            if not lm:
+                continue
+            size = o.get("Size", 0)
+            objects.append({"key": key, "last_modified": lm, "size": size})
+        scanned += len(contents)
+
+    # Sort by last modified to help select latest per bucket
+    objects.sort(key=lambda x: x["last_modified"])  # ascending
+
+    def tier_and_bucket(dt: datetime) -> Tuple[str, str]:
+        age = now - dt
+        days = age.total_seconds() / 86400
+        if days < 7:
+            # hourly
+            bucket_id = dt.replace(minute=0, second=0, microsecond=0).strftime("%Y-%m-%dT%H:00Z")
+            return ("hourly", bucket_id)
+        elif days < 30:
+            # daily
+            bucket_id = dt.date().strftime("%Y-%m-%d")
+            return ("daily", bucket_id)
+        elif days < 90:
+            # weekly (ISO week) for 1–3 months
+            iso_year, iso_week, _ = dt.isocalendar()
+            bucket_id = f"{iso_year}-W{iso_week:02d}"
+            return ("weekly", bucket_id)
+        elif days < 365:
+            # biweekly (every 2 ISO weeks) for >3 months and <1 year
+            iso_year, iso_week, _ = dt.isocalendar()
+            biweek = (iso_week - 1) // 2 + 1  # 1..26 or 27
+            bucket_id = f"{iso_year}-BW{biweek:02d}"
+            return ("biweekly", bucket_id)
+        else:
+            # monthly for >= 1 year
+            bucket_id = dt.strftime("%Y-%m")
+            return ("monthly", bucket_id)
+
+    # Pick the newest object per (tier,bucket_id)
+    keep_by_bucket: Dict[str, Dict] = {}
+    for obj in objects:
+        tier, bid = tier_and_bucket(obj["last_modified"])
+        k = f"{tier}:{bid}"
+        prev = keep_by_bucket.get(k)
+        if prev is None or obj["last_modified"] > prev["last_modified"]:
+            keep_by_bucket[k] = obj
+
+    keep_keys = {v["key"] for v in keep_by_bucket.values()}
+    to_delete = [o for o in objects if o["key"] not in keep_keys]
+
+    deleted = 0
+    batches = 0
+    if not dry_run and to_delete:
+        for i in range(0, len(to_delete), 1000):
+            chunk = to_delete[i : i + 1000]
+            resp = s3.delete_objects(
+                Bucket=bucket,
+                Delete={"Objects": [{"Key": o["key"]} for o in chunk], "Quiet": True},
+            )
+            deleted += len(resp.get("Deleted", []))
+            batches += 1
+
+    result = {
+        "prefix": prefix or "",
+        "scanned": len(objects),
+        "kept": len(keep_keys),
+        "to_delete": len(to_delete),
+        "deleted": deleted,
+        "batches": batches,
+        "policy": {
+            "hourly": "< 7 days",
+            "daily": "7–30 days",
+            "weekly": "30–90 days",
+            "biweekly": "90–365 days",
+            "monthly": ">= 365 days",
+        },
+        # return sample keys for preview/debug (capped)
+        "sample_delete_keys": [o["key"] for o in to_delete[:20]],
+    }
+    return result

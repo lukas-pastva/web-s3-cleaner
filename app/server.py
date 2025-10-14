@@ -5,6 +5,7 @@ from .s3_utils import (
     list_objects_page,
     delete_all_objects,
     cleanup_old_objects,
+    smart_cleanup,
 )
 
 
@@ -55,6 +56,19 @@ def create_app():
         code = 200 if "error" not in result else 500
         return jsonify(result), code
 
+    @app.post("/api/buckets/<bucket>/smart-cleanup")
+    def smart_cleanup_route(bucket):
+        if not _ensure_allowed(bucket):
+            return jsonify({"error": "Bucket not allowed"}), 400
+        prefix = request.args.get("prefix") or None
+        dry_run = request.args.get("dry_run", default="0") in ("1", "true", "True")
+        try:
+            result = smart_cleanup(bucket=bucket, prefix=prefix, dry_run=dry_run)
+            code = 200 if "error" not in result else 500
+            return jsonify(result), code
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
     @app.get("/")
     def index():
         return send_from_directory(app.static_folder, "index.html")
@@ -67,4 +81,3 @@ app = create_app()
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "8000"))
     app.run(host="0.0.0.0", port=port)
-
