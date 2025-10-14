@@ -13,6 +13,7 @@ const btnSmartCleanup = document.getElementById('btn-smart-cleanup');
 const btnSmartCleanupFolders = document.getElementById('btn-smart-cleanup-folders');
 const btnPrev = document.getElementById('prev');
 const btnNext = document.getElementById('next');
+const pagerSpinner = document.getElementById('pager-spinner');
 const bucketsSpinner = document.getElementById('buckets-spinner');
 const themeToggle = document.getElementById('theme-toggle');
 const copyLinkBtn = document.getElementById('copy-link');
@@ -153,6 +154,8 @@ async function loadListing(token) {
   setStatus('');
   titleSpinner && titleSpinner.classList.remove('hidden');
   listingOverlay && listingOverlay.classList.remove('hidden');
+  if (pagerSpinner) pagerSpinner.classList.remove('hidden');
+  btnPrev.disabled = true; btnNext.disabled = true;
   try {
     const params = new URLSearchParams();
     if (state.prefix) params.set('prefix', state.prefix);
@@ -218,6 +221,7 @@ async function loadListing(token) {
     renderBreadcrumbs();
   } finally {
     listingOverlay && listingOverlay.classList.add('hidden');
+    if (pagerSpinner) pagerSpinner.classList.add('hidden');
   }
   // annotate smart-cleanup deletions for visible objects (keep small spinner visible)
   try { await annotateSmartMarkers(); }
