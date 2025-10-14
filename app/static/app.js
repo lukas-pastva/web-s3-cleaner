@@ -38,6 +38,8 @@ let state = {
   tokenStack: [], // for prev
   nextToken: null,
   preview: null, // { type: 'cleanup'|'smart', bucket, candidates: [{key,size,last_modified}], meta: {...} }
+  sortKey: 'last_modified',
+  sortDir: 'desc',
 };
 
 // Theme handling (Auto/Light/Dark) with daytime-based auto and persistence
@@ -171,8 +173,18 @@ async function loadListing(token) {
       };
       rowsEl.appendChild(tr);
     });
-    // objects
-    data.objects.forEach(o => {
+    // objects (sorted)
+    const objs = (data.objects || []).slice();
+    const dir = state.sortDir === 'desc' ? -1 : 1;
+    objs.sort((a, b) => {
+      let av, bv;
+      if (state.sortKey === 'size') { av = a.size||0; bv = b.size||0; }
+      else if (state.sortKey === 'last_modified') { av = a.last_modified ? Date.parse(a.last_modified) : 0; bv = b.last_modified ? Date.parse(b.last_modified) : 0; }
+      else { av = (a.key||'').toLowerCase(); bv = (b.key||'').toLowerCase(); }
+      if (av < bv) return -1*dir; if (av > bv) return 1*dir; return 0;
+    });
+    updateSortIndicators();
+    objs.forEach(o => {
       const name = o.key.replace(state.prefix, '');
       const tr = document.createElement('tr');
       tr.setAttribute('data-key', o.key);
@@ -385,6 +397,7 @@ loadBuckets().catch(e => setStatus(String(e), true));
 
 // Initialize theme after DOM is ready
 initTheme();
+initSortHeaders();
 
 async function annotateSmartMarkers() {
   // Remove previous markers
@@ -410,6 +423,34 @@ async function annotateSmartMarkers() {
       td.appendChild(icon);
     }
   });
+}
+
+function updateSortIndicators() {
+  const ths = document.querySelectorAll('thead th[data-sort]');
+  ths.forEach(th => {
+    const key = th.getAttribute('data-sort');
+    const icon = th.querySelector('.sort-icon');
+    th.classList.toggle('sorted', key === state.sortKey);
+    if (icon) icon.textContent = key === state.sortKey ? (state.sortDir === 'desc' ? '▼' : '▲') : '';
+  });
+}
+
+function initSortHeaders() {
+  const ths = document.querySelectorAll('thead th[data-sort]');
+  ths.forEach(th => {
+    th.onclick = () => {
+      const key = th.getAttribute('data-sort');
+      if (state.sortKey === key) {
+        state.sortDir = state.sortDir === 'desc' ? 'asc' : 'desc';
+      } else {
+        state.sortKey = key;
+        state.sortDir = key === 'last_modified' ? 'desc' : 'asc';
+      }
+      // Re-render current page by reloading listing (keeps pagination correct)
+      loadListing();
+    };
+  });
+  updateSortIndicators();
 }
 
 async function loadCounts() {

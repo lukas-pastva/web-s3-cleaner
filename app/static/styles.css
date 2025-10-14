@@ -73,6 +73,9 @@ table { width: 100%; border-collapse: collapse; }
 th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--border); }
 tbody tr:hover { background: var(--hover); }
 thead th { position: sticky; top: 0; background: var(--panel); z-index: 1; }
+thead th[data-sort] { cursor: pointer; user-select: none; }
+thead th .sort-icon { opacity: 0.5; margin-left: 4px; font-size: 0.9em; }
+thead th.sorted .sort-icon { opacity: 1; }
 td.row-actions { text-align: right; width: 80px; }
 .del-btn { background: transparent; color: var(--danger); border: none; cursor: pointer; padding: 4px 6px; border-radius: 6px; font-size: 16px; }
 .del-btn:hover { background: rgba(239, 68, 68, 0.12); }
