@@ -9,6 +9,7 @@
   --muted: #9ca3af;
   --accent: #22c55e;
   --danger: #ef4444;
+  --warn: #f59e0b;
   --border: #1f2937;
   --sidebar: #0b1220;
   --hover: #0b1220;
@@ -25,6 +26,7 @@
   --muted: #475569;
   --accent: #16a34a;
   --danger: #dc2626;
+  --warn: #d97706;
   --border: #e5e7eb;
   --sidebar: #f1f5f9;
   --hover: #eef2f7;
@@ -84,7 +86,7 @@ td.row-actions { text-align: right; width: 80px; }
 .link:hover { text-decoration: underline; }
 .link { color: var(--link); cursor: pointer; }
 .link:hover { color: var(--link-hover); text-decoration: underline; }
-.smart-del { color: var(--danger); font-size: 0.95em; }
+.smart-del { color: var(--warn); font-size: 0.95em; }
 .icon-link { text-decoration: none; margin-right: 6px; }
 
 /* Icon-only small header button */

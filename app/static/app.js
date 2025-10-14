@@ -352,8 +352,8 @@ async function annotateSmartMarkers() {
       if (!td) return;
       const icon = document.createElement('span');
       icon.className = 'smart-del';
-      icon.title = 'Will be deleted by Smart cleanup';
-      icon.textContent = '🗑️';
+      icon.title = 'Will be removed by Smart cleanup';
+      icon.textContent = '⚠️';
       td.appendChild(document.createTextNode(' '));
       td.appendChild(icon);
     }
