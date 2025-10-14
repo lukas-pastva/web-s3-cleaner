@@ -160,15 +160,24 @@ def list_objects_page(
 
     resp = s3.list_objects_v2(**kwargs)
     folders = [p.get("Prefix") for p in resp.get("CommonPrefixes", [])]
-    objects = [
-        {
-            "key": o["Key"],
-            "size": o.get("Size", 0),
-            "last_modified": o.get("LastModified").isoformat() if o.get("LastModified") else None,
-            "storage_class": o.get("StorageClass"),
-        }
-        for o in resp.get("Contents", [])
-    ]
+    objects: List[Dict] = []
+    for o in resp.get("Contents", []):
+        key = o.get("Key")
+        if not key:
+            continue
+        # Ignore S3 folder placeholder objects (keys ending with '/' or equal to the prefix)
+        if key.endswith("/"):
+            continue
+        if prefix and key == prefix:
+            continue
+        objects.append(
+            {
+                "key": key,
+                "size": o.get("Size", 0),
+                "last_modified": o.get("LastModified").isoformat() if o.get("LastModified") else None,
+                "storage_class": o.get("StorageClass"),
+            }
+        )
 
     return {
         "prefix": prefix or "",
@@ -253,9 +262,13 @@ def cleanup_candidates(bucket: str, days: int = 30, prefix: Optional[str] = None
         scanned += len(contents)
         for o in contents:
             lm = o.get("LastModified")
+            key = o.get("Key")
+            # Ignore folder placeholders
+            if key and key.endswith("/"):
+                continue
             if lm and lm < threshold:
                 candidates.append({
-                    "key": o["Key"],
+                    "key": key,
                     "size": o.get("Size", 0),
                     "last_modified": lm.isoformat(),
                 })
