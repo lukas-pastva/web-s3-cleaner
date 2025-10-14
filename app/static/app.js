@@ -172,7 +172,8 @@ async function loadListing(token) {
     data.folders.forEach(f => {
       const name = f.replace(state.prefix, '').replace(/\/$/, '');
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td><span class="link">📁 ${name}</span></td><td></td><td></td><td class="row-actions"><button class="del-btn" data-prefix="${encodeURIComponent(f)}" title="Delete this folder (prefix)" aria-label="Delete folder">🗑️</button></td>`;
+      tr.setAttribute('data-prefix', f);
+      tr.innerHTML = `<td class="name-cell"><span class="link">📁 ${name}</span></td><td></td><td></td><td class="row-actions"><button class="del-btn" data-prefix="${encodeURIComponent(f)}" title="Delete this folder (prefix)" aria-label="Delete folder">🗑️</button></td>`;
       tr.querySelector('.link').onclick = () => {
         state.prefix = f; state.tokenStack = []; state.nextToken = null; updateURL(); loadListing();
       };
@@ -490,24 +491,46 @@ async function annotateSmartMarkers() {
   if (!state.bucket) return;
   const params = new URLSearchParams();
   if (state.prefix) params.set('prefix', state.prefix);
+  // Objects
   const res = await fetch(`/api/buckets/${encodeURIComponent(state.bucket)}/smart-cleanup-preview?${params.toString()}`);
   const data = await res.json();
-  if (data.error) return; // silently ignore
-  const delSet = new Set((data.candidates || []).map(c => c.key));
-  const rows = [...rowsEl.querySelectorAll('tr[data-key]')];
-  rows.forEach(tr => {
-    const key = tr.getAttribute('data-key');
-    if (delSet.has(key)) {
-      const td = tr.querySelector('td.name-cell');
-      if (!td) return;
-      const icon = document.createElement('span');
-      icon.className = 'smart-del';
-      icon.title = 'Will be removed by Smart cleanup';
-      icon.textContent = '⚠️';
-      td.appendChild(document.createTextNode(' '));
-      td.appendChild(icon);
-    }
-  });
+  if (!data.error) {
+    const delSet = new Set((data.candidates || []).map(c => c.key));
+    const rows = [...rowsEl.querySelectorAll('tr[data-key]')];
+    rows.forEach(tr => {
+      const key = tr.getAttribute('data-key');
+      if (delSet.has(key)) {
+        const td = tr.querySelector('td.name-cell');
+        if (!td) return;
+        const icon = document.createElement('span');
+        icon.className = 'smart-del';
+        icon.title = 'Will be removed by Smart cleanup';
+        icon.textContent = '⚠️';
+        td.appendChild(document.createTextNode(' '));
+        td.appendChild(icon);
+      }
+    });
+  }
+  // Folders
+  const res2 = await fetch(`/api/buckets/${encodeURIComponent(state.bucket)}/smart-cleanup-folders-preview?${params.toString()}`);
+  const data2 = await res2.json();
+  if (!data2.error) {
+    const delPfx = new Set((data2.candidates || []).map(c => c.key));
+    const frows = [...rowsEl.querySelectorAll('tr[data-prefix]')];
+    frows.forEach(tr => {
+      const pfx = tr.getAttribute('data-prefix');
+      if (delPfx.has(pfx)) {
+        const td = tr.querySelector('td.name-cell');
+        if (!td) return;
+        const icon = document.createElement('span');
+        icon.className = 'smart-del';
+        icon.title = 'Folder will be removed by Smart cleanup';
+        icon.textContent = '⚠️';
+        td.appendChild(document.createTextNode(' '));
+        td.appendChild(icon);
+      }
+    });
+  }
 }
 
 // Copy share link
