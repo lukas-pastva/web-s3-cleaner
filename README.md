@@ -68,5 +68,12 @@ Notes
   - 90–365 days: keep 1 per 2 weeks (biweekly)
   - >= 365 days: keep 1 per month
   - The app selects the newest object within each time bucket.
+
+Approval Flow
+-------------
+- Cleanup and Smart cleanup now run in two steps:
+  1) Preview: the app lists every object that would be deleted under the current scope (bucket root or selected prefix).
+  2) Approval: you can approve each file individually (checkboxes) or use Approve All.
+- Deletions are executed only after explicit approval.
 - Large buckets: operations can take time; backend runs synchronously. For very large buckets, consider adding background jobs and progress tracking.
 - Security: This app has no auth. Restrict network access (e.g., only within cluster) or put behind an auth proxy.

@@ -231,6 +231,32 @@ def cleanup_old_objects(bucket: str, days: int = 30) -> Dict:
         return {"error": str(e), "deleted": deleted, "scanned": scanned, "batches": batches, "days": days}
 
 
+def cleanup_candidates(bucket: str, days: int = 30, prefix: Optional[str] = None) -> Dict:
+    """Return objects older than threshold as candidates for deletion.
+    Optionally filter by Prefix.
+    """
+    s3 = _client_for_bucket(bucket)
+    paginator = s3.get_paginator("list_objects_v2")
+    threshold = datetime.now(timezone.utc) - timedelta(days=days)
+    candidates: List[Dict] = []
+    scanned = 0
+    kwargs = {"Bucket": bucket}
+    if prefix:
+        kwargs["Prefix"] = prefix
+    for page in paginator.paginate(**kwargs):
+        contents = page.get("Contents", [])
+        scanned += len(contents)
+        for o in contents:
+            lm = o.get("LastModified")
+            if lm and lm < threshold:
+                candidates.append({
+                    "key": o["Key"],
+                    "size": o.get("Size", 0),
+                    "last_modified": lm.isoformat(),
+                })
+    return {"prefix": prefix or "", "days": days, "scanned": scanned, "candidates": candidates}
+
+
 def smart_cleanup(bucket: str, prefix: Optional[str] = None, dry_run: bool = False) -> Dict:
     """
     Apply tiered retention on objects under a prefix:
@@ -329,7 +355,32 @@ def smart_cleanup(bucket: str, prefix: Optional[str] = None, dry_run: bool = Fal
             "biweekly": "90–365 days",
             "monthly": ">= 365 days",
         },
-        # return sample keys for preview/debug (capped)
-        "sample_delete_keys": [o["key"] for o in to_delete[:20]],
+        # full candidate list for preview/approval
+        "candidates": [
+            {"key": o["key"], "size": o["size"], "last_modified": o["last_modified"].isoformat()}
+            for o in to_delete
+        ],
     }
+    return result
+
+
+def delete_keys(bucket: str, keys: List[str]) -> Dict:
+    """Delete provided keys in chunks of 1000."""
+    if not keys:
+        return {"deleted": 0, "batches": 0}
+    s3 = _client_for_bucket(bucket)
+    deleted = 0
+    batches = 0
+    errors: List[Dict] = []
+    for i in range(0, len(keys), 1000):
+        chunk = keys[i : i + 1000]
+        resp = s3.delete_objects(Bucket=bucket, Delete={"Objects": [{"Key": k} for k in chunk], "Quiet": True})
+        deleted += len(resp.get("Deleted", []))
+        batches += 1
+        errs = resp.get("Errors", [])
+        for e in errs:
+            errors.append({"key": e.get("Key"), "code": e.get("Code"), "message": e.get("Message")})
+    result = {"deleted": deleted, "batches": batches}
+    if errors:
+        result["errors"] = errors
     return result

@@ -10,12 +10,21 @@ const btnSmartCleanup = document.getElementById('btn-smart-cleanup');
 const btnPrev = document.getElementById('prev');
 const btnNext = document.getElementById('next');
 const themeToggle = document.getElementById('theme-toggle');
+// Preview panel elements
+const previewPanel = document.getElementById('preview-panel');
+const previewInfo = document.getElementById('preview-info');
+const previewList = document.getElementById('preview-list');
+const selectAll = document.getElementById('select-all');
+const approveSelected = document.getElementById('approve-selected');
+const approveAll = document.getElementById('approve-all');
+const cancelPreview = document.getElementById('cancel-preview');
 
 let state = {
   bucket: null,
   prefix: '',
   tokenStack: [], // for prev
   nextToken: null,
+  preview: null, // { type: 'cleanup'|'smart', bucket, candidates: [{key,size,last_modified}], meta: {...} }
 };
 
 // Theme handling (Auto/Light/Dark) with daytime-based auto and persistence
@@ -178,13 +187,14 @@ btnPrev.onclick = () => {
 
 btnCleanup.onclick = async () => {
   if (!state.bucket) return;
-  if (!confirm(`Cleanup objects older than 30 days in ${state.bucket}?`)) return;
-  setStatus('Starting cleanup...');
-  const res = await fetch(`/api/buckets/${encodeURIComponent(state.bucket)}/cleanup`, { method: 'POST' });
+  setStatus('Preparing cleanup preview...');
+  const params = new URLSearchParams();
+  if (state.prefix) params.set('prefix', state.prefix);
+  params.set('days', '30');
+  const res = await fetch(`/api/buckets/${encodeURIComponent(state.bucket)}/cleanup-preview?${params.toString()}`);
   const data = await res.json();
-  if (data.error) setStatus(`Error: ${data.error}`, true);
-  else setStatus(`Cleanup done. Deleted ${data.deleted} (scanned ${data.scanned}).`);
-  await loadListing();
+  if (data.error) { setStatus(`Error: ${data.error}`, true); return; }
+  showPreview({ type: 'cleanup', bucket: state.bucket, candidates: data.candidates, meta: { days: data.days, prefix: data.prefix } });
 };
 
 btnDeleteAll.onclick = async () => {
@@ -204,21 +214,90 @@ btnDeleteAll.onclick = async () => {
 
 btnSmartCleanup.onclick = async () => {
   if (!state.bucket) return;
-  const scope = state.prefix ? `prefix "${state.prefix}"` : 'entire bucket';
-  const msg = `Smart cleanup on ${scope} in ${state.bucket}?\n\nPolicy:\n- < 7 days: keep 1 per hour\n- 7–30 days: keep 1 per day\n- 30–90 days: keep 1 per 7 days\n- 90–365 days: keep 1 per 2 weeks\n- >= 365 days: keep 1 per month\n\nProceed?`;
-  if (!confirm(msg)) return;
-  setStatus('Running smart cleanup...');
+  setStatus('Preparing smart cleanup preview...');
   const params = new URLSearchParams();
   if (state.prefix) params.set('prefix', state.prefix);
-  const res = await fetch(`/api/buckets/${encodeURIComponent(state.bucket)}/smart-cleanup?${params.toString()}`, { method: 'POST' });
+  const res = await fetch(`/api/buckets/${encodeURIComponent(state.bucket)}/smart-cleanup-preview?${params.toString()}`);
   const data = await res.json();
-  if (data.error) {
-    setStatus(`Error: ${data.error}`, true);
-    return;
-  }
-  setStatus(`Smart cleanup done. Kept ${data.kept}/${data.scanned}, deleted ${data.deleted} (planned ${data.to_delete}).`);
-  await loadListing();
+  if (data.error) { setStatus(`Error: ${data.error}`, true); return; }
+  showPreview({ type: 'smart', bucket: state.bucket, candidates: data.candidates, meta: { prefix: data.prefix, policy: data.policy, kept: data.kept, scanned: data.scanned } });
 };
+
+function showPreview(preview) {
+  state.preview = preview;
+  // Render basic info
+  const scope = preview.meta.prefix ? `Prefix "${preview.meta.prefix}"` : 'Entire bucket';
+  const extra = preview.type === 'cleanup' ? `(> ${preview.meta.days} days)` : '(smart policy)';
+  previewInfo.textContent = `${scope} — ${preview.candidates.length} files planned for deletion ${extra}`;
+  // Render list
+  previewList.innerHTML = '';
+  const frag = document.createDocumentFragment();
+  preview.candidates.forEach((c, idx) => {
+    const row = document.createElement('div');
+    row.className = 'preview-item';
+    row.innerHTML = `
+      <input type="checkbox" class="candidate" data-key="${encodeURIComponent(c.key)}" />
+      <div class="path">${c.key}</div>
+      <div class="muted">${c.last_modified || ''}</div>
+      <div class="muted">${fmtBytes(c.size)}</div>
+    `;
+    frag.appendChild(row);
+  });
+  previewList.appendChild(frag);
+
+  previewPanel.classList.remove('hidden');
+  approveAll.disabled = preview.candidates.length === 0;
+  approveSelected.disabled = true;
+  selectAll.checked = false;
+  setStatus('Review and approve deletions.');
+  wirePreviewSelection();
+}
+
+function wirePreviewSelection() {
+  const boxes = [...previewList.querySelectorAll('input.candidate')];
+  const refresh = () => {
+    const any = boxes.some(b => b.checked);
+    approveSelected.disabled = !any;
+    // Keep select-all in sync
+    selectAll.checked = boxes.length > 0 && boxes.every(b => b.checked);
+  };
+  boxes.forEach(b => b.onchange = refresh);
+  selectAll.onchange = () => { boxes.forEach(b => b.checked = selectAll.checked); refresh(); };
+  refresh();
+}
+
+cancelPreview.onclick = () => { previewPanel.classList.add('hidden'); state.preview = null; };
+
+approveAll.onclick = async () => {
+  if (!state.preview || !state.bucket) return;
+  const n = state.preview.candidates.length;
+  if (n === 0) return;
+  if (!confirm(`Approve deletion of ALL ${n} files?`)) return;
+  await submitDeletions(state.preview.candidates.map(c => c.key));
+};
+
+approveSelected.onclick = async () => {
+  if (!state.preview || !state.bucket) return;
+  const keys = [...previewList.querySelectorAll('input.candidate:checked')].map(b => decodeURIComponent(b.getAttribute('data-key')));
+  if (keys.length === 0) return;
+  if (!confirm(`Approve deletion of ${keys.length} selected files?`)) return;
+  await submitDeletions(keys);
+};
+
+async function submitDeletions(keys) {
+  setStatus('Deleting selected files...');
+  const res = await fetch(`/api/buckets/${encodeURIComponent(state.bucket)}/delete-keys`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ keys })
+  });
+  const data = await res.json();
+  if (data.error) { setStatus(`Error: ${data.error}`, true); return; }
+  setStatus(`Deleted ${data.deleted} objects in ${data.batches} batches.`);
+  previewPanel.classList.add('hidden');
+  state.preview = null;
+  await loadListing();
+}
 
 loadBuckets().catch(e => setStatus(String(e), true));
 

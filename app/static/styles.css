@@ -66,3 +66,15 @@ tbody tr:hover { background: var(--hover); }
 
 .link { color: #93c5fd; cursor: pointer; }
 .link:hover { text-decoration: underline; }
+
+/* Preview panel */
+#preview-panel { margin-top: 16px; padding: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; }
+#preview-panel.hidden { display: none; }
+#preview-panel .panel-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+#preview-panel h3 { margin: 0; }
+#preview-panel .actions { display: flex; align-items: center; gap: 8px; }
+#preview-info { color: var(--muted); margin-top: 8px; }
+#preview-list { margin-top: 8px; max-height: 320px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; }
+.preview-item { display: grid; grid-template-columns: 28px 1fr auto auto; gap: 8px; padding: 6px 8px; border-bottom: 1px solid var(--border); align-items: center; }
+.preview-item:last-child { border-bottom: none; }
+.muted { color: var(--muted); }

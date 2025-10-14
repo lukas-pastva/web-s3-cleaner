@@ -6,6 +6,8 @@ from .s3_utils import (
     delete_all_objects,
     cleanup_old_objects,
     smart_cleanup,
+    cleanup_candidates,
+    delete_keys,
 )
 
 
@@ -56,6 +58,18 @@ def create_app():
         code = 200 if "error" not in result else 500
         return jsonify(result), code
 
+    @app.get("/api/buckets/<bucket>/cleanup-preview")
+    def cleanup_preview(bucket):
+        if not _ensure_allowed(bucket):
+            return jsonify({"error": "Bucket not allowed"}), 400
+        days = request.args.get("days", default=30, type=int)
+        prefix = request.args.get("prefix") or None
+        try:
+            result = cleanup_candidates(bucket=bucket, days=days, prefix=prefix)
+            return jsonify(result)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
     @app.post("/api/buckets/<bucket>/smart-cleanup")
     def smart_cleanup_route(bucket):
         if not _ensure_allowed(bucket):
@@ -66,6 +80,34 @@ def create_app():
             result = smart_cleanup(bucket=bucket, prefix=prefix, dry_run=dry_run)
             code = 200 if "error" not in result else 500
             return jsonify(result), code
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    @app.get("/api/buckets/<bucket>/smart-cleanup-preview")
+    def smart_cleanup_preview(bucket):
+        if not _ensure_allowed(bucket):
+            return jsonify({"error": "Bucket not allowed"}), 400
+        prefix = request.args.get("prefix") or None
+        try:
+            result = smart_cleanup(bucket=bucket, prefix=prefix, dry_run=True)
+            # Ensure we don't return deletion counts when dry-run
+            result.pop("deleted", None)
+            result.pop("batches", None)
+            return jsonify(result)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    @app.post("/api/buckets/<bucket>/delete-keys")
+    def delete_keys_route(bucket):
+        if not _ensure_allowed(bucket):
+            return jsonify({"error": "Bucket not allowed"}), 400
+        try:
+            payload = request.get_json(force=True, silent=True) or {}
+            keys = payload.get("keys") or []
+            if not isinstance(keys, list) or not all(isinstance(k, str) for k in keys):
+                return jsonify({"error": "Invalid or missing 'keys' list"}), 400
+            result = delete_keys(bucket=bucket, keys=keys)
+            return jsonify(result)
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 

@@ -40,6 +40,19 @@
             <button id="next" disabled>Next</button>
           </div>
         </div>
+        <div id="preview-panel" class="hidden">
+          <div class="panel-header">
+            <h3>Review planned deletions</h3>
+            <div class="actions">
+              <label><input type="checkbox" id="select-all"> Select all</label>
+              <button id="approve-selected" class="danger" disabled>Approve Selected</button>
+              <button id="approve-all" class="danger" disabled>Approve All</button>
+              <button id="cancel-preview">Cancel</button>
+            </div>
+          </div>
+          <div id="preview-info" class="muted"></div>
+          <div id="preview-list" class="scroll"></div>
+        </div>
         <pre id="status"></pre>
       </section>
     </main>
