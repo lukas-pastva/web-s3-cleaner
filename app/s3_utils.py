@@ -471,25 +471,67 @@ _TS_PATTERNS = [
 
 
 def _parse_timestamp(name: str) -> Optional[datetime]:
-    base = name.strip().rstrip("/")
-    for rx, fmt in _TS_PATTERNS:
-        if rx.match(base):
-            try:
-                # Normalize separators for parsing
-                s = base
-                s = s.replace("_", "T").replace("-", "-")
-                dt = datetime.strptime(s, fmt)
-                return dt.replace(tzinfo=timezone.utc)
-            except Exception:
-                continue
-    # Fallback: look for a YYYY-MM-DD or YYYYMMDD-like substring
-    m = re.search(r"(\d{4})[-_]?(\d{2})[-_]?(\d{2})", base)
-    if m:
+    """
+    Extract a timestamp from an arbitrary folder name. Prefers the last
+    timestamp-looking substring to avoid matching IDs earlier in the name.
+
+    Supported inside-string patterns (examples):
+    - 2025-05-02_06-17-48  -> "%Y-%m-%d %H-%M-%S"
+    - 2025-05-02_06-17     -> "%Y-%m-%d %H-%M"
+    - 2025-05-02T06:17:48  -> "%Y-%m-%dT%H:%M:%S"
+    - 20250502T061748      -> "%Y%m%dT%H%M%S"
+    - 20250502             -> "%Y%m%d"
+    - 2025-05-02           -> "%Y-%m-%d"
+    """
+    s = name.strip().rstrip("/")
+
+    # Try patterns with date and time (with seconds)
+    pats = [
+        # YYYY-MM-DD[_|T]HH-MM-SS
+        (re.compile(r"(\d{4}-\d{2}-\d{2})[T_](\d{2})-(\d{2})-(\d{2})"), "ymd_hms_dash"),
+        # YYYY-MM-DD[_|T]HH:MM:SS
+        (re.compile(r"(\d{4}-\d{2}-\d{2})[T_](\d{2}):(\d{2}):(\d{2})"), "ymd_hms_colon"),
+        # YYYY-MM-DD[_|T]HH-MM
+        (re.compile(r"(\d{4}-\d{2}-\d{2})[T_](\d{2})-(\d{2})(?![-:\d])"), "ymd_hm_dash"),
+        # YYYYMMDD[T]?HHMMSS
+        (re.compile(r"(\d{8})[T_]?(\d{6})"), "ymd_compact_hms"),
+        # YYYYMMDD
+        (re.compile(r"(\d{8})(?!\d)"), "ymd_compact"),
+        # YYYY-MM-DD
+        (re.compile(r"(\d{4}-\d{2}-\d{2})(?![\dT_])"), "ymd"),
+    ]
+
+    for rx, kind in pats:
+        m = None
+        # Find the last occurrence to prefer trailing timestamp
+        matches = list(rx.finditer(s))
+        if matches:
+            m = matches[-1]
+        if not m:
+            continue
         try:
-            y, mo, d = int(m.group(1)), int(m.group(2)), int(m.group(3))
-            return datetime(y, mo, d, tzinfo=timezone.utc)
+            if kind == "ymd_hms_dash":
+                ymd, hh, mm, ss = m.groups()
+                dt = datetime.strptime(f"{ymd}T{hh}:{mm}:{ss}", "%Y-%m-%dT%H:%M:%S")
+            elif kind == "ymd_hms_colon":
+                ymd, hh, mm, ss = m.groups()
+                dt = datetime.strptime(f"{ymd}T{hh}:{mm}:{ss}", "%Y-%m-%dT%H:%M:%S")
+            elif kind == "ymd_hm_dash":
+                ymd, hh, mm = m.groups()
+                dt = datetime.strptime(f"{ymd}T{hh}:{mm}", "%Y-%m-%dT%H:%M")
+            elif kind == "ymd_compact_hms":
+                ymd, hms = m.groups()
+                dt = datetime.strptime(f"{ymd}T{hms}", "%Y%m%dT%H%M%S")
+            elif kind == "ymd_compact":
+                (ymd,) = m.groups()
+                dt = datetime.strptime(ymd, "%Y%m%d")
+            else:  # "ymd"
+                (ymd,) = m.groups()
+                dt = datetime.strptime(ymd, "%Y-%m-%d")
+            return dt.replace(tzinfo=timezone.utc)
         except Exception:
-            pass
+            continue
+
     return None
 
 
