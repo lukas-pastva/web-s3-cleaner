@@ -10,6 +10,7 @@ const breadcrumbsEl = document.getElementById('breadcrumbs');
 const btnCleanup = document.getElementById('btn-cleanup');
 const btnDeleteAll = document.getElementById('btn-delete-all');
 const btnSmartCleanup = document.getElementById('btn-smart-cleanup');
+const btnSmartCleanupFolders = document.getElementById('btn-smart-cleanup-folders');
 const btnPrev = document.getElementById('prev');
 const btnNext = document.getElementById('next');
 const bucketsSpinner = document.getElementById('buckets-spinner');
@@ -168,9 +169,21 @@ async function loadListing(token) {
     data.folders.forEach(f => {
       const name = f.replace(state.prefix, '').replace(/\/$/, '');
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td><span class="link">📁 ${name}</span></td><td></td><td></td><td></td>`;
+      tr.innerHTML = `<td><span class="link">📁 ${name}</span></td><td></td><td></td><td class="row-actions"><button class="del-btn" data-prefix="${encodeURIComponent(f)}" title="Delete this folder (prefix)" aria-label="Delete folder">🗑️</button></td>`;
       tr.querySelector('.link').onclick = () => {
         state.prefix = f; state.tokenStack = []; state.nextToken = null; updateURL(); loadListing();
+      };
+      const fdel = tr.querySelector('.del-btn');
+      fdel.onclick = async (e) => {
+        e.stopPropagation();
+        const pfx = decodeURIComponent(fdel.getAttribute('data-prefix'));
+        if (!confirm(`Delete entire folder (prefix)?\n\n${pfx}`)) return;
+        setStatus('Deleting folder...');
+        const res = await fetch(`/api/buckets/${encodeURIComponent(state.bucket)}/delete-prefixes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prefixes: [pfx] }) });
+        const data = await res.json();
+        if (data.error) setStatus(`Error: ${data.error}`, true);
+        else setStatus(`Folder deleted: ${pfx} (objects deleted: ${data.deleted})`);
+        await loadListing();
       };
       rowsEl.appendChild(tr);
     });
@@ -279,6 +292,19 @@ btnSmartCleanup.onclick = async () => {
   showPreview({ type: 'smart', bucket: state.bucket, candidates: data.candidates, meta: { prefix: data.prefix, policy: data.policy, kept: data.kept, scanned: data.scanned } });
 };
 
+if (btnSmartCleanupFolders) {
+  btnSmartCleanupFolders.onclick = async () => {
+    if (!state.bucket) return;
+    setStatus('Preparing folder smart cleanup preview...');
+    const params = new URLSearchParams();
+    if (state.prefix) params.set('prefix', state.prefix);
+    const res = await fetch(`/api/buckets/${encodeURIComponent(state.bucket)}/smart-cleanup-folders-preview?${params.toString()}`);
+    const data = await res.json();
+    if (data.error) { setStatus(`Error: ${data.error}`, true); return; }
+    showPreview({ type: 'smart-folders', bucket: state.bucket, candidates: data.candidates, meta: { prefix: data.prefix, policy: data.policy, kept: data.kept, scanned: data.scanned_folders } });
+  };
+}
+
 function showPreview(preview) {
   state.preview = preview;
   // Render basic info
@@ -334,16 +360,26 @@ approveAll.onclick = async () => {
   if (!state.preview || !state.bucket) return;
   const n = state.preview.candidates.length;
   if (n === 0) return;
-  if (!confirm(`Approve deletion of ALL ${n} files?`)) return;
-  await submitDeletions(state.preview.candidates.map(c => c.key));
+  const noun = state.preview.type === 'smart-folders' ? 'folders' : 'files';
+  if (!confirm(`Approve deletion of ALL ${n} ${noun}?`)) return;
+  if (state.preview.type === 'smart-folders') {
+    await submitFolderDeletions(state.preview.candidates.map(c => c.key));
+  } else {
+    await submitDeletions(state.preview.candidates.map(c => c.key));
+  }
 };
 
 approveSelected.onclick = async () => {
   if (!state.preview || !state.bucket) return;
   const keys = [...previewList.querySelectorAll('input.candidate:checked')].map(b => decodeURIComponent(b.getAttribute('data-key')));
   if (keys.length === 0) return;
-  if (!confirm(`Approve deletion of ${keys.length} selected files?`)) return;
-  await submitDeletions(keys);
+  const noun = state.preview.type === 'smart-folders' ? 'folders' : 'files';
+  if (!confirm(`Approve deletion of ${keys.length} selected ${noun}?`)) return;
+  if (state.preview.type === 'smart-folders') {
+    await submitFolderDeletions(keys);
+  } else {
+    await submitDeletions(keys);
+  }
 };
 
 async function submitDeletions(keys) {
@@ -387,6 +423,50 @@ async function submitDeletions(keys) {
   if (deleteStopBtn) deleteStopBtn.onclick = null;
   if (cancelled) {
     setStatus(`Deletion cancelled at ${processed}/${total}. Deleted ${totalDeleted}.`);
+  } else {
+    setStatus(`Deleted ${totalDeleted} objects in ${totalBatches} requests.`);
+  }
+  hidePreviewModal();
+  await loadListing();
+}
+
+async function submitFolderDeletions(prefixes) {
+  setStatus('Deleting selected folders...');
+  // Disable controls
+  const boxes = [...previewList.querySelectorAll('input.candidate')];
+  boxes.forEach(b => b.disabled = true);
+  selectAll.disabled = true;
+  approveSelected.disabled = true;
+  approveAll.disabled = true;
+  if (deleteProgress) deleteProgress.classList.remove('hidden');
+  let cancelled = false;
+  const onStop = () => { cancelled = true; deleteStopBtn && (deleteStopBtn.disabled = true); };
+  if (deleteStopBtn) { deleteStopBtn.disabled = false; deleteStopBtn.onclick = onStop; }
+  const total = prefixes.length;
+  let processed = 0;
+  let totalDeleted = 0;
+  let totalBatches = 0;
+  const step = 10; // delete 10 folders per request
+  for (let i = 0; i < prefixes.length; i += step) {
+    if (cancelled) break;
+    const chunk = prefixes.slice(i, i + step);
+    const res = await fetch(`/api/buckets/${encodeURIComponent(state.bucket)}/delete-prefixes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prefixes: chunk })
+    });
+    const data = await res.json();
+    if (data.error) { setStatus(`Error: ${data.error}`, true); break; }
+    totalDeleted += (data.deleted || 0);
+    totalBatches += (data.batches || 0);
+    processed += chunk.length;
+    const pct = Math.min(100, Math.round(processed * 100 / total));
+    if (deleteProgressBar) deleteProgressBar.style.width = pct + '%';
+    if (deleteProgressText) deleteProgressText.textContent = `${processed}/${total} (${pct}%)`;
+  }
+  if (deleteStopBtn) deleteStopBtn.onclick = null;
+  if (cancelled) {
+    setStatus(`Folder deletion cancelled at ${processed}/${total}. Deleted ${totalDeleted}.`);
   } else {
     setStatus(`Deleted ${totalDeleted} objects in ${totalBatches} requests.`);
   }

@@ -9,6 +9,8 @@ from .s3_utils import (
     cleanup_candidates,
     delete_keys,
     client_for_bucket,
+    delete_prefixes,
+    smart_cleanup_folders,
 )
 
 
@@ -108,6 +110,35 @@ def create_app():
             if not isinstance(keys, list) or not all(isinstance(k, str) for k in keys):
                 return jsonify({"error": "Invalid or missing 'keys' list"}), 400
             result = delete_keys(bucket=bucket, keys=keys)
+            return jsonify(result)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    @app.post("/api/buckets/<bucket>/delete-prefixes")
+    def delete_prefixes_route(bucket):
+        if not _ensure_allowed(bucket):
+            return jsonify({"error": "Bucket not allowed"}), 400
+        try:
+            payload = request.get_json(force=True, silent=True) or {}
+            prefixes = payload.get("prefixes") or []
+            if isinstance(prefixes, str):
+                prefixes = [prefixes]
+            if not isinstance(prefixes, list) or not all(isinstance(p, str) for p in prefixes):
+                return jsonify({"error": "Invalid or missing 'prefixes' list"}), 400
+            result = delete_prefixes(bucket=bucket, prefixes=prefixes)
+            return jsonify(result)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    @app.get("/api/buckets/<bucket>/smart-cleanup-folders-preview")
+    def smart_cleanup_folders_preview(bucket):
+        if not _ensure_allowed(bucket):
+            return jsonify({"error": "Bucket not allowed"}), 400
+        prefix = request.args.get("prefix") or None
+        try:
+            result = smart_cleanup_folders(bucket=bucket, parent_prefix=prefix, dry_run=True)
+            result.pop("deleted", None)
+            result.pop("batches", None)
             return jsonify(result)
         except Exception as e:
             return jsonify({"error": str(e)}), 500

@@ -1,5 +1,6 @@
 import os
 from datetime import datetime, timedelta, timezone
+import re
 from typing import Dict, List, Optional, Tuple
 
 import boto3
@@ -427,3 +428,166 @@ def delete_keys(bucket: str, keys: List[str]) -> Dict:
     if errors:
         result["errors"] = errors
     return result
+
+
+def delete_prefix(bucket: str, prefix: str) -> Dict:
+    """Delete all objects under a prefix (recursive)."""
+    s3 = _client_for_bucket(bucket)
+    paginator = s3.get_paginator("list_objects_v2")
+    deleted = 0
+    batches = 0
+    for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+        contents = page.get("Contents", [])
+        if not contents:
+            continue
+        keys = [{"Key": o["Key"]} for o in contents]
+        for i in range(0, len(keys), 1000):
+            chunk = keys[i : i + 1000]
+            resp = s3.delete_objects(Bucket=bucket, Delete={"Objects": chunk, "Quiet": True})
+            deleted += len(resp.get("Deleted", []))
+            batches += 1
+    return {"deleted": deleted, "batches": batches}
+
+
+def delete_prefixes(bucket: str, prefixes: List[str]) -> Dict:
+    total_deleted = 0
+    total_batches = 0
+    for p in prefixes:
+        res = delete_prefix(bucket, p)
+        total_deleted += res.get("deleted", 0)
+        total_batches += res.get("batches", 0)
+    return {"deleted": total_deleted, "batches": total_batches, "prefixes": len(prefixes)}
+
+
+_TS_PATTERNS = [
+    # ISO-like
+    (re.compile(r"^(\d{4})-(\d{2})-(\d{2})[T_](\d{2}):(\d{2}):(\d{2})$"), "%Y-%m-%dT%H:%M:%S"),
+    (re.compile(r"^(\d{4})-(\d{2})-(\d{2})[T_](\d{2})-(\d{2})-(\d{2})$"), "%Y-%m-%d_%H-%M-%S"),
+    (re.compile(r"^(\d{4})-(\d{2})-(\d{2})[T_](\d{2}):(\d{2})$"), "%Y-%m-%dT%H:%M"),
+    (re.compile(r"^(\d{4})(\d{2})(\d{2})[T_]?(\d{2})(\d{2})(\d{2})$"), "%Y%m%d%H%M%S"),
+    (re.compile(r"^(\d{4})(\d{2})(\d{2})$"), "%Y%m%d"),
+    (re.compile(r"^(\d{4})-(\d{2})-(\d{2})$"), "%Y-%m-%d"),
+]
+
+
+def _parse_timestamp(name: str) -> Optional[datetime]:
+    base = name.strip().rstrip("/")
+    for rx, fmt in _TS_PATTERNS:
+        if rx.match(base):
+            try:
+                # Normalize separators for parsing
+                s = base
+                s = s.replace("_", "T").replace("-", "-")
+                dt = datetime.strptime(s, fmt)
+                return dt.replace(tzinfo=timezone.utc)
+            except Exception:
+                continue
+    # Fallback: look for a YYYY-MM-DD or YYYYMMDD-like substring
+    m = re.search(r"(\d{4})[-_]?(\d{2})[-_]?(\d{2})", base)
+    if m:
+        try:
+            y, mo, d = int(m.group(1)), int(m.group(2)), int(m.group(3))
+            return datetime(y, mo, d, tzinfo=timezone.utc)
+        except Exception:
+            pass
+    return None
+
+
+def smart_cleanup_folders(bucket: str, parent_prefix: Optional[str] = None, dry_run: bool = False) -> Dict:
+    """Apply tiered retention on direct subfolders under parent_prefix using folder name timestamps.
+
+    Only subfolders whose trailing segment parses to a timestamp are considered.
+    Deletion removes all objects under the selected prefixes.
+    """
+    s3 = _client_for_bucket(bucket)
+    paginator = s3.get_paginator("list_objects_v2")
+    now = datetime.now(timezone.utc)
+
+    kwargs = {"Bucket": bucket, "Delimiter": "/"}
+    if parent_prefix:
+        kwargs["Prefix"] = parent_prefix
+
+    # Gather subfolders
+    folders: List[Dict] = []
+    scanned = 0
+    for page in paginator.paginate(**kwargs):
+        cps = page.get("CommonPrefixes", [])
+        scanned += len(cps)
+        for cp in cps:
+            pfx = cp.get("Prefix")
+            if not pfx:
+                continue
+            name = pfx
+            if parent_prefix and pfx.startswith(parent_prefix):
+                name = pfx[len(parent_prefix):]
+            name = name.rstrip("/")
+            ts = _parse_timestamp(name)
+            if not ts:
+                continue  # skip non-timestamped folders
+            folders.append({"prefix": pfx, "ts": ts})
+
+    # Sort by ts for deterministic keep selection
+    folders.sort(key=lambda x: x["ts"])  # ascending
+
+    def tier_and_bucket(dt: datetime) -> Tuple[str, str]:
+        age = now - dt
+        days = age.total_seconds() / 86400
+        if days < 7:
+            bucket_id = dt.replace(minute=0, second=0, microsecond=0).strftime("%Y-%m-%dT%H:00Z")
+            return ("hourly", bucket_id)
+        elif days < 30:
+            bucket_id = dt.date().strftime("%Y-%m-%d")
+            return ("daily", bucket_id)
+        elif days < 90:
+            iso_year, iso_week, _ = dt.isocalendar()
+            bucket_id = f"{iso_year}-W{iso_week:02d}"
+            return ("weekly", bucket_id)
+        elif days < 365:
+            iso_year, iso_week, _ = dt.isocalendar()
+            biweek = (iso_week - 1) // 2 + 1
+            bucket_id = f"{iso_year}-BW{biweek:02d}"
+            return ("biweekly", bucket_id)
+        else:
+            bucket_id = dt.strftime("%Y-%m")
+            return ("monthly", bucket_id)
+
+    keep_by_bucket: Dict[str, Dict] = {}
+    for item in folders:
+        tier, bid = tier_and_bucket(item["ts"])
+        k = f"{tier}:{bid}"
+        prev = keep_by_bucket.get(k)
+        if prev is None or item["ts"] > prev["ts"]:
+            keep_by_bucket[k] = item
+
+    keep_prefixes = {v["prefix"] for v in keep_by_bucket.values()}
+    to_delete = [f for f in folders if f["prefix"] not in keep_prefixes]
+
+    deleted = 0
+    batches = 0
+    if not dry_run and to_delete:
+        for chunk_start in range(0, len(to_delete), 50):  # delete 50 folders per batch loop
+            chunk = to_delete[chunk_start:chunk_start+50]
+            res = delete_prefixes(bucket, [c["prefix"] for c in chunk])
+            deleted += res.get("deleted", 0)
+            batches += res.get("batches", 0)
+
+    return {
+        "prefix": parent_prefix or "",
+        "scanned_folders": scanned,
+        "considered_folders": len(folders),
+        "kept": len(keep_prefixes),
+        "to_delete": len(to_delete),
+        "deleted": deleted,
+        "batches": batches,
+        "policy": {
+            "hourly": "< 7 days",
+            "daily": "7–30 days",
+            "weekly": "30–90 days",
+            "biweekly": "90–365 days",
+            "monthly": ">= 365 days",
+        },
+        "candidates": [
+            {"key": f["prefix"], "last_modified": f["ts"].isoformat(), "size": None}
+            for f in to_delete
+        ],
+    }
