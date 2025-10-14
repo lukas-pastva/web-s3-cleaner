@@ -5,6 +5,7 @@ const bucketTitleEl = document.getElementById('bucket-title');
 const bucketActionsEl = document.getElementById('bucket-actions');
 const titleSpinner = document.getElementById('title-spinner');
 const listingOverlay = document.getElementById('listing-overlay');
+const listingEl = document.getElementById('listing');
 const breadcrumbsEl = document.getElementById('breadcrumbs');
 const btnCleanup = document.getElementById('btn-cleanup');
 const btnDeleteAll = document.getElementById('btn-delete-all');
@@ -159,6 +160,7 @@ async function loadListing(token) {
       return;
     }
     rowsEl.innerHTML = '';
+    if (listingEl) listingEl.scrollTop = 0;
     // folders first
     data.folders.forEach(f => {
       const name = f.replace(state.prefix, '').replace(/\/$/, '');
