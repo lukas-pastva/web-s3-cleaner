@@ -66,6 +66,7 @@ tbody tr:hover { background: var(--hover); }
 
 .link { color: #93c5fd; cursor: pointer; }
 .link:hover { text-decoration: underline; }
+.smart-del { color: var(--danger); font-size: 0.95em; }
 
 /* Preview panel */
 #preview-panel { margin-top: 16px; padding: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; }

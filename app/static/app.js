@@ -149,13 +149,16 @@ async function loadListing(token) {
   data.objects.forEach(o => {
     const name = o.key.replace(state.prefix, '');
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${name}</td><td>${fmtBytes(o.size)}</td><td>${o.last_modified || ''}</td>`;
+    tr.setAttribute('data-key', o.key);
+    tr.innerHTML = `<td class="name-cell">${name}</td><td>${fmtBytes(o.size)}</td><td>${o.last_modified || ''}</td>`;
     rowsEl.appendChild(tr);
   });
   state.nextToken = data.next_token || null;
   btnNext.disabled = !state.nextToken;
   btnPrev.disabled = state.tokenStack.length === 0;
   renderBreadcrumbs();
+  // annotate smart-cleanup deletions for visible objects
+  annotateSmartMarkers().catch(() => {});
 }
 
 function selectBucket(bucket) {
@@ -303,3 +306,29 @@ loadBuckets().catch(e => setStatus(String(e), true));
 
 // Initialize theme after DOM is ready
 initTheme();
+
+async function annotateSmartMarkers() {
+  // Remove previous markers
+  [...rowsEl.querySelectorAll('.smart-del')].forEach(el => el.remove());
+  if (!state.bucket) return;
+  const params = new URLSearchParams();
+  if (state.prefix) params.set('prefix', state.prefix);
+  const res = await fetch(`/api/buckets/${encodeURIComponent(state.bucket)}/smart-cleanup-preview?${params.toString()}`);
+  const data = await res.json();
+  if (data.error) return; // silently ignore
+  const delSet = new Set((data.candidates || []).map(c => c.key));
+  const rows = [...rowsEl.querySelectorAll('tr[data-key]')];
+  rows.forEach(tr => {
+    const key = tr.getAttribute('data-key');
+    if (delSet.has(key)) {
+      const td = tr.querySelector('td.name-cell');
+      if (!td) return;
+      const icon = document.createElement('span');
+      icon.className = 'smart-del';
+      icon.title = 'Will be deleted by Smart cleanup';
+      icon.textContent = '🗑️';
+      td.appendChild(document.createTextNode(' '));
+      td.appendChild(icon);
+    }
+  });
+}
