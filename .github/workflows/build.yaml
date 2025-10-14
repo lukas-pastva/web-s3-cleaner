@@ -21,7 +21,7 @@ jobs:
           GITHUB_SHA: ${{ github.sha }}
         run: |
           docker login registry.hub.docker.com -u "${{ secrets.DOCKER_HUB_USERNAME }}" -p "${{ secrets.DOCKER_HUB_PASSWORD }}"
-          docker build -f ./src/Dockerfile -t registry.hub.docker.com/lukaspastva/${{ github.event.repository.name }}:latest ./src
+          docker build -f ./Dockerfile -t registry.hub.docker.com/lukaspastva/${{ github.event.repository.name }}:latest ./
           docker tag registry.hub.docker.com/lukaspastva/${{ github.event.repository.name }}:latest registry.hub.docker.com/lukaspastva/${{ github.event.repository.name }}:${GITHUB_SHA}
           docker push registry.hub.docker.com/lukaspastva/${{ github.event.repository.name }}:latest
           docker push registry.hub.docker.com/lukaspastva/${{ github.event.repository.name }}:${GITHUB_SHA}
