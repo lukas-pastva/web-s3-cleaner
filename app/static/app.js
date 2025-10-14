@@ -16,6 +16,10 @@ const themeToggle = document.getElementById('theme-toggle');
 // Preview panel elements
 const previewPanel = document.getElementById('preview-panel');
 const previewModal = document.getElementById('preview-modal');
+const deleteProgress = document.getElementById('delete-progress');
+const deleteProgressBar = document.getElementById('delete-progress-bar');
+const deleteProgressText = document.getElementById('delete-progress-text');
+const deleteStopBtn = document.getElementById('delete-stop');
 const previewInfo = document.getElementById('preview-info');
 const previewList = document.getElementById('preview-list');
 const selectAll = document.getElementById('select-all');
@@ -277,6 +281,12 @@ function showPreview(preview) {
   previewList.appendChild(frag);
   // Show modal
   previewModal && previewModal.classList.remove('hidden');
+  // Reset progress
+  if (deleteProgress) {
+    deleteProgress.classList.add('hidden');
+    if (deleteProgressBar) deleteProgressBar.style.width = '0%';
+    if (deleteProgressText) deleteProgressText.textContent = '0%';
+  }
   approveAll.disabled = preview.candidates.length === 0;
   approveSelected.disabled = true;
   selectAll.checked = false;
@@ -317,14 +327,48 @@ approveSelected.onclick = async () => {
 
 async function submitDeletions(keys) {
   setStatus('Deleting selected files...');
-  const res = await fetch(`/api/buckets/${encodeURIComponent(state.bucket)}/delete-keys`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ keys })
-  });
-  const data = await res.json();
-  if (data.error) { setStatus(`Error: ${data.error}`, true); return; }
-  setStatus(`Deleted ${data.deleted} objects in ${data.batches} batches.`);
+  // Disable selection while deleting
+  const boxes = [...previewList.querySelectorAll('input.candidate')];
+  boxes.forEach(b => b.disabled = true);
+  selectAll.disabled = true;
+  approveSelected.disabled = true;
+  approveAll.disabled = true;
+  // Show progress
+  if (deleteProgress) deleteProgress.classList.remove('hidden');
+  let cancelled = false;
+  const onStop = () => { cancelled = true; deleteStopBtn && (deleteStopBtn.disabled = true); };
+  if (deleteStopBtn) {
+    deleteStopBtn.disabled = false;
+    deleteStopBtn.onclick = onStop;
+  }
+  const total = keys.length;
+  let processed = 0;
+  let totalDeleted = 0;
+  let totalBatches = 0;
+  const chunkSize = 500;
+  for (let i = 0; i < keys.length; i += chunkSize) {
+    if (cancelled) break;
+    const chunk = keys.slice(i, i + chunkSize);
+    const res = await fetch(`/api/buckets/${encodeURIComponent(state.bucket)}/delete-keys`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keys: chunk })
+    });
+    const data = await res.json();
+    if (data.error) { setStatus(`Error: ${data.error}`, true); break; }
+    totalDeleted += (data.deleted || 0);
+    totalBatches += (data.batches || 0);
+    processed += chunk.length;
+    const pct = Math.min(100, Math.round(processed * 100 / total));
+    if (deleteProgressBar) deleteProgressBar.style.width = pct + '%';
+    if (deleteProgressText) deleteProgressText.textContent = `${processed}/${total} (${pct}%)`;
+  }
+  if (deleteStopBtn) deleteStopBtn.onclick = null;
+  if (cancelled) {
+    setStatus(`Deletion cancelled at ${processed}/${total}. Deleted ${totalDeleted}.`);
+  } else {
+    setStatus(`Deleted ${totalDeleted} objects in ${totalBatches} requests.`);
+  }
   hidePreviewModal();
   await loadListing();
 }

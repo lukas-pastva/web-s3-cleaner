@@ -112,6 +112,13 @@ td.row-actions { text-align: right; width: 80px; }
 .preview-item:last-child { border-bottom: none; }
 .muted { color: var(--muted); }
 
+/* Delete progress */
+#delete-progress { margin-top: 8px; }
+.progress-row { display: flex; gap: 8px; align-items: center; }
+.progress-track { flex: 1; height: 8px; background: var(--border); border-radius: 999px; overflow: hidden; }
+.progress-bar { height: 100%; width: 0%; background: var(--accent); transition: width 0.2s ease; }
+.progress-text { min-width: 120px; text-align: right; color: var(--muted); }
+
 /* Modal overlay */
 .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; }
 .modal.hidden { display: none; }
