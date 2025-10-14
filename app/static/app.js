@@ -9,12 +9,63 @@ const btnDeleteAll = document.getElementById('btn-delete-all');
 const btnSmartCleanup = document.getElementById('btn-smart-cleanup');
 const btnPrev = document.getElementById('prev');
 const btnNext = document.getElementById('next');
+const themeToggle = document.getElementById('theme-toggle');
 
 let state = {
   bucket: null,
   prefix: '',
   tokenStack: [], // for prev
   nextToken: null,
+};
+
+// Theme handling (Auto/Light/Dark) with daytime-based auto and persistence
+const THEME_KEY = 'ws3c:themeMode'; // auto|light|dark
+function getThemeMode() {
+  return localStorage.getItem(THEME_KEY) || 'auto';
+}
+function setThemeMode(mode) {
+  localStorage.setItem(THEME_KEY, mode);
+}
+function computeAutoTheme() {
+  const now = new Date();
+  const h = now.getHours();
+  // Light during day (07:00–18:59), Dark otherwise
+  return (h >= 7 && h < 19) ? 'light' : 'dark';
+}
+function applyTheme(mode = getThemeMode()) {
+  const m = mode === 'auto' ? computeAutoTheme() : mode;
+  document.documentElement.setAttribute('data-theme', m);
+  themeToggle.textContent = `Theme: ${mode.charAt(0).toUpperCase() + mode.slice(1)}`;
+}
+let autoTimer = null;
+function scheduleAutoRecalc() {
+  if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; }
+  if (getThemeMode() !== 'auto') return;
+  const now = new Date();
+  const h = now.getHours();
+  // Next boundary at 07:00 or 19:00 local time
+  let next = new Date(now);
+  if (h < 7) {
+    next.setHours(7, 0, 0, 0);
+  } else if (h < 19) {
+    next.setHours(19, 0, 0, 0);
+  } else {
+    next.setDate(next.getDate() + 1);
+    next.setHours(7, 0, 0, 0);
+  }
+  const delay = Math.max(1, next - now);
+  autoTimer = setTimeout(() => { applyTheme('auto'); scheduleAutoRecalc(); }, delay);
+}
+function initTheme() {
+  applyTheme();
+  scheduleAutoRecalc();
+}
+themeToggle.onclick = () => {
+  const cur = getThemeMode();
+  const next = cur === 'auto' ? 'light' : cur === 'light' ? 'dark' : 'auto';
+  setThemeMode(next);
+  applyTheme(next);
+  scheduleAutoRecalc();
 };
 
 function fmtBytes(bytes) {
@@ -170,3 +221,6 @@ btnSmartCleanup.onclick = async () => {
 };
 
 loadBuckets().catch(e => setStatus(String(e), true));
+
+// Initialize theme after DOM is ready
+initTheme();
