@@ -61,6 +61,7 @@ section#content { flex: 1; padding: 16px; }
 #bucket-actions .actions-row { display: flex; align-items: center; gap: 12px; }
 #bucket-title { margin: 0; margin-right: auto; }
 #breadcrumbs { color: var(--muted); font-size: 14px; margin-left: 2px; }
+#counts { color: var(--muted); font-size: 13px; }
 
 button { background: var(--button); color: var(--text); border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
 button:hover { background: var(--button-hover); }

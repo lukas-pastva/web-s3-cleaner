@@ -112,6 +112,18 @@ def create_app():
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
+    @app.get("/api/buckets/<bucket>/counts")
+    def counts(bucket):
+        if not _ensure_allowed(bucket):
+            return jsonify({"error": "Bucket not allowed"}), 400
+        prefix = request.args.get("prefix") or None
+        from .s3_utils import count_prefix
+        try:
+            result = count_prefix(bucket=bucket, prefix=prefix)
+            return jsonify(result)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
     @app.get("/")
     def index():
         return send_from_directory(app.static_folder, "index.html")

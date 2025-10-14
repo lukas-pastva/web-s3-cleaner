@@ -26,6 +26,10 @@ const selectAll = document.getElementById('select-all');
 const approveSelected = document.getElementById('approve-selected');
 const approveAll = document.getElementById('approve-all');
 const cancelPreview = document.getElementById('cancel-preview');
+// Counts
+const countFilesEl = document.getElementById('count-files');
+const countFoldersEl = document.getElementById('count-folders');
+const countSpinner = document.getElementById('count-spinner');
 
 let state = {
   bucket: null,
@@ -190,6 +194,8 @@ async function loadListing(token) {
   // annotate smart-cleanup deletions for visible objects (keep small spinner visible)
   try { await annotateSmartMarkers(); }
   finally { titleSpinner && titleSpinner.classList.add('hidden'); }
+  // load counts asynchronously
+  loadCounts().catch(() => {});
 }
 
 function selectBucket(bucket) {
@@ -402,6 +408,22 @@ async function annotateSmartMarkers() {
       td.appendChild(icon);
     }
   });
+}
+
+async function loadCounts() {
+  if (!state.bucket) return;
+  if (countSpinner) countSpinner.classList.remove('hidden');
+  try {
+    const params = new URLSearchParams();
+    if (state.prefix) params.set('prefix', state.prefix);
+    const res = await fetch(`/api/buckets/${encodeURIComponent(state.bucket)}/counts?${params.toString()}`);
+    const data = await res.json();
+    if (!data || data.error) return;
+    if (countFilesEl) countFilesEl.textContent = data.files ?? 0;
+    if (countFoldersEl) countFoldersEl.textContent = data.folders ?? 0;
+  } finally {
+    if (countSpinner) countSpinner.classList.add('hidden');
+  }
 }
 
 function hidePreviewModal() {

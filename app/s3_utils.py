@@ -275,6 +275,31 @@ def cleanup_candidates(bucket: str, days: int = 30, prefix: Optional[str] = None
     return {"prefix": prefix or "", "days": days, "scanned": scanned, "candidates": candidates}
 
 
+def count_prefix(bucket: str, prefix: Optional[str] = None) -> Dict:
+    """Count direct children in a prefix (non-recursive): files and folders.
+    Uses Delimiter '/' to stay at current level and paginates across results.
+    """
+    s3 = _client_for_bucket(bucket)
+    paginator = s3.get_paginator("list_objects_v2")
+    kwargs = {"Bucket": bucket, "Delimiter": "/"}
+    if prefix:
+        kwargs["Prefix"] = prefix
+    files = 0
+    folders = 0
+    for page in paginator.paginate(**kwargs):
+        folders += len(page.get("CommonPrefixes", []))
+        for o in page.get("Contents", []):
+            key = o.get("Key")
+            if not key:
+                continue
+            if key.endswith("/"):
+                continue
+            if prefix and key == prefix:
+                continue
+            files += 1
+    return {"prefix": prefix or "", "files": files, "folders": folders}
+
+
 def smart_cleanup(bucket: str, prefix: Optional[str] = None, dry_run: bool = False) -> Dict:
     """
     Apply tiered retention on objects under a prefix:
