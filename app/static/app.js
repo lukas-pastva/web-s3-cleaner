@@ -13,6 +13,8 @@ const btnPrev = document.getElementById('prev');
 const btnNext = document.getElementById('next');
 const bucketsSpinner = document.getElementById('buckets-spinner');
 const themeToggle = document.getElementById('theme-toggle');
+const headerEl = document.getElementById('topbar');
+const headerToggle = document.getElementById('header-toggle');
 // Preview panel elements
 const previewPanel = document.getElementById('preview-panel');
 const previewInfo = document.getElementById('preview-info');
@@ -128,6 +130,7 @@ function renderBreadcrumbs() {
       state.prefix = prefix;
       state.tokenStack = [];
       state.nextToken = null;
+      updateURL();
       loadListing();
     };
   });
@@ -155,7 +158,7 @@ async function loadListing(token) {
       const tr = document.createElement('tr');
       tr.innerHTML = `<td><span class="link">📁 ${name}</span></td><td></td><td></td>`;
       tr.querySelector('.link').onclick = () => {
-        state.prefix = f; state.tokenStack = []; state.nextToken = null; loadListing();
+        state.prefix = f; state.tokenStack = []; state.nextToken = null; updateURL(); loadListing();
       };
       rowsEl.appendChild(tr);
     });
@@ -187,6 +190,7 @@ function selectBucket(bucket) {
   state.nextToken = null;
   bucketTitleEl.textContent = bucket;
   bucketActionsEl.classList.remove('hidden');
+  updateURL();
   loadListing();
 }
 
@@ -350,4 +354,85 @@ async function annotateSmartMarkers() {
       td.appendChild(icon);
     }
   });
+}
+
+// Header collapse persistence
+const COLLAPSE_KEY = 'ws3c:headerCollapsed';
+function applyHeaderCollapsed(val) {
+  if (!headerEl) return;
+  headerEl.classList.toggle('collapsed', !!val);
+  headerToggle.title = val ? 'Expand top bar' : 'Collapse top bar';
+  headerToggle.setAttribute('aria-label', headerToggle.title);
+  headerToggle.textContent = val ? '▴' : '▾';
+}
+function initHeaderCollapse() {
+  const saved = localStorage.getItem(COLLAPSE_KEY) === '1';
+  applyHeaderCollapsed(saved);
+  headerToggle.onclick = () => {
+    const current = headerEl.classList.contains('collapsed');
+    const next = !current;
+    localStorage.setItem(COLLAPSE_KEY, next ? '1' : '0');
+    applyHeaderCollapsed(next);
+  };
+}
+
+initHeaderCollapse();
+
+// URL sync (bucket/prefix in path)
+function buildPath(bucket, prefix) {
+  if (!bucket) return '/';
+  if (prefix) {
+    const clean = prefix.replace(/^\/+/, '');
+    // keep segments as path for readability
+    const segs = clean.split('/').filter(Boolean).map(encodeURIComponent).join('/');
+    return `/b/${encodeURIComponent(bucket)}/p/${segs}/`;
+  }
+  return `/b/${encodeURIComponent(bucket)}`;
+}
+
+function updateURL(replace=false) {
+  const url = buildPath(state.bucket, state.prefix);
+  const st = { bucket: state.bucket, prefix: state.prefix };
+  if (replace) history.replaceState(st, '', url); else history.pushState(st, '', url);
+}
+
+function parsePath() {
+  const path = location.pathname;
+  const parts = path.split('/').filter(Boolean);
+  if (parts[0] === 'b' && parts[1]) {
+    const bucket = decodeURIComponent(parts[1]);
+    let prefix = '';
+    if (parts[2] === 'p') {
+      const rest = parts.slice(3).map(decodeURIComponent).join('/');
+      prefix = rest;
+      if (prefix && !prefix.endsWith('/')) prefix += '/';
+    }
+    return { bucket, prefix };
+  }
+  return null;
+}
+
+window.addEventListener('popstate', (ev) => {
+  const parsed = parsePath();
+  if (parsed && parsed.bucket) {
+    state.bucket = parsed.bucket;
+    state.prefix = parsed.prefix || '';
+    state.tokenStack = [];
+    state.nextToken = null;
+    bucketTitleEl.textContent = state.bucket;
+    bucketActionsEl.classList.remove('hidden');
+    loadListing();
+  }
+});
+
+// Initial path handling
+const initial = parsePath();
+if (initial && initial.bucket) {
+  state.bucket = initial.bucket;
+  state.prefix = initial.prefix || '';
+  // reflect current without adding to history again
+  updateURL(true);
+  bucketTitleEl.textContent = state.bucket;
+  bucketActionsEl.classList.remove('hidden');
+  loadListing();
 }

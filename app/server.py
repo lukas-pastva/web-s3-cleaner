@@ -116,6 +116,15 @@ def create_app():
     def index():
         return send_from_directory(app.static_folder, "index.html")
 
+    # SPA routes to enable shareable URLs for bucket/prefix
+    @app.get("/b/<bucket>")
+    def spa_bucket(bucket):
+        return send_from_directory(app.static_folder, "index.html")
+
+    @app.get("/b/<bucket>/p/<path:prefix>")
+    def spa_prefix(bucket, prefix):
+        return send_from_directory(app.static_folder, "index.html")
+
     @app.get("/api/buckets/<bucket>/download")
     def download_object(bucket):
         if not _ensure_allowed(bucket):
