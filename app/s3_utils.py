@@ -152,7 +152,7 @@ def list_objects_page(
     delimiter: str = "/",
 ) -> Dict:
     s3 = _client_for_bucket(bucket)
-    kwargs = {"Bucket": bucket, "Delimiter": delimiter}
+    kwargs = {"Bucket": bucket, "Delimiter": delimiter, "MaxKeys": 500}
     if prefix:
         kwargs["Prefix"] = prefix
     if continuation_token:
