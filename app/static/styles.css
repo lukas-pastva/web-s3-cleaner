@@ -118,6 +118,8 @@ tbody td .link:hover { text-decoration: none; }
 #preview-panel h3 { margin: 0; }
 #preview-panel .actions { display: flex; align-items: center; gap: 8px; }
 #preview-info { color: var(--muted); margin-top: 8px; }
+#preview-status { margin-top: 8px; color: var(--accent); }
+#preview-status.error { color: var(--danger); }
 #preview-list { margin-top: 8px; max-height: 320px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; }
 .preview-item { display: grid; grid-template-columns: 28px 1fr auto auto; gap: 8px; padding: 6px 8px; border-bottom: 1px solid var(--border); align-items: center; }
 .preview-item:last-child { border-bottom: none; }

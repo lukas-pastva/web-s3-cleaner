@@ -19,6 +19,7 @@ const themeToggle = document.getElementById('theme-toggle');
 // Preview panel elements
 const previewPanel = document.getElementById('preview-panel');
 const previewModal = document.getElementById('preview-modal');
+const previewStatus = document.getElementById('preview-status');
 const deleteProgress = document.getElementById('delete-progress');
 const deleteProgressBar = document.getElementById('delete-progress-bar');
 const deleteProgressText = document.getElementById('delete-progress-text');
@@ -341,7 +342,7 @@ function showPreview(preview) {
   approveAll.disabled = preview.candidates.length === 0;
   approveSelected.disabled = true;
   selectAll.checked = false;
-  setStatus('Review and approve deletions.');
+  setPreviewStatus('Review and approve deletions.');
   wirePreviewSelection();
 }
 
@@ -387,7 +388,7 @@ approveSelected.onclick = async () => {
 };
 
 async function submitDeletions(keys) {
-  setStatus('Deleting selected files...');
+  setPreviewStatus('Deleting selected files...');
   // Disable selection while deleting
   const boxes = [...previewList.querySelectorAll('input.candidate')];
   boxes.forEach(b => b.disabled = true);
@@ -416,7 +417,7 @@ async function submitDeletions(keys) {
       body: JSON.stringify({ keys: chunk })
     });
     const data = await res.json();
-    if (data.error) { setStatus(`Error: ${data.error}`, true); break; }
+    if (data.error) { setPreviewStatus(`Error: ${data.error}`, true); break; }
     totalDeleted += (data.deleted || 0);
     totalBatches += (data.batches || 0);
     processed += chunk.length;
@@ -426,16 +427,16 @@ async function submitDeletions(keys) {
   }
   if (deleteStopBtn) deleteStopBtn.onclick = null;
   if (cancelled) {
-    setStatus(`Deletion cancelled at ${processed}/${total}. Deleted ${totalDeleted}.`);
+    setPreviewStatus(`Deletion cancelled at ${processed}/${total}. Deleted ${totalDeleted}.`);
   } else {
-    setStatus(`Deleted ${totalDeleted} objects in ${totalBatches} requests.`);
+    setPreviewStatus(`Deleted ${totalDeleted} objects in ${totalBatches} requests.`);
   }
   hidePreviewModal();
   await loadListing();
 }
 
 async function submitFolderDeletions(prefixes) {
-  setStatus('Deleting selected folders...');
+  setPreviewStatus('Deleting selected folders...');
   // Disable controls
   const boxes = [...previewList.querySelectorAll('input.candidate')];
   boxes.forEach(b => b.disabled = true);
@@ -460,7 +461,7 @@ async function submitFolderDeletions(prefixes) {
       body: JSON.stringify({ prefixes: chunk })
     });
     const data = await res.json();
-    if (data.error) { setStatus(`Error: ${data.error}`, true); break; }
+    if (data.error) { setPreviewStatus(`Error: ${data.error}`, true); break; }
     totalDeleted += (data.deleted || 0);
     totalBatches += (data.batches || 0);
     processed += chunk.length;
@@ -470,9 +471,9 @@ async function submitFolderDeletions(prefixes) {
   }
   if (deleteStopBtn) deleteStopBtn.onclick = null;
   if (cancelled) {
-    setStatus(`Folder deletion cancelled at ${processed}/${total}. Deleted ${totalDeleted}.`);
+    setPreviewStatus(`Folder deletion cancelled at ${processed}/${total}. Deleted ${totalDeleted}.`);
   } else {
-    setStatus(`Deleted ${totalDeleted} objects in ${totalBatches} requests.`);
+    setPreviewStatus(`Deleted ${totalDeleted} objects in ${totalBatches} requests.`);
   }
   hidePreviewModal();
   await loadListing();
@@ -580,6 +581,7 @@ async function loadCounts() {
 function hidePreviewModal() {
   if (previewModal) previewModal.classList.add('hidden');
   state.preview = null;
+  setPreviewStatus('');
 }
 
 // Close modal when clicking outside dialog or pressing Escape
@@ -591,6 +593,13 @@ if (previewModal) {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && previewModal && !previewModal.classList.contains('hidden')) hidePreviewModal();
 });
+
+function setPreviewStatus(msg, isError = false) {
+  if (!previewStatus) return;
+  previewStatus.textContent = msg || '';
+  previewStatus.classList.toggle('error', !!isError);
+  previewStatus.classList.toggle('hidden', !msg);
+}
 
 // (Header collapse removed)
 
