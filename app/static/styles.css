@@ -97,8 +97,7 @@ tbody tr:hover { background: var(--hover); }
 .spinner.large { width: 36px; height: 36px; border-width: 4px; }
 
 /* Preview panel */
-#preview-panel { margin-top: 16px; padding: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; }
-#preview-panel.hidden { display: none; }
+#preview-panel { padding: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; }
 #preview-panel .panel-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 #preview-panel h3 { margin: 0; }
 #preview-panel .actions { display: flex; align-items: center; gap: 8px; }
@@ -107,3 +106,8 @@ tbody tr:hover { background: var(--hover); }
 .preview-item { display: grid; grid-template-columns: 28px 1fr auto auto; gap: 8px; padding: 6px 8px; border-bottom: 1px solid var(--border); align-items: center; }
 .preview-item:last-child { border-bottom: none; }
 .muted { color: var(--muted); }
+
+/* Modal overlay */
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.modal.hidden { display: none; }
+.modal .dialog { width: min(960px, 92vw); max-height: 86vh; overflow: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }

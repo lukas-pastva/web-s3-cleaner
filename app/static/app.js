@@ -15,6 +15,7 @@ const bucketsSpinner = document.getElementById('buckets-spinner');
 const themeToggle = document.getElementById('theme-toggle');
 // Preview panel elements
 const previewPanel = document.getElementById('preview-panel');
+const previewModal = document.getElementById('preview-modal');
 const previewInfo = document.getElementById('preview-info');
 const previewList = document.getElementById('preview-list');
 const selectAll = document.getElementById('select-all');
@@ -268,8 +269,8 @@ function showPreview(preview) {
     frag.appendChild(row);
   });
   previewList.appendChild(frag);
-
-  previewPanel.classList.remove('hidden');
+  // Show modal
+  previewModal && previewModal.classList.remove('hidden');
   approveAll.disabled = preview.candidates.length === 0;
   approveSelected.disabled = true;
   selectAll.checked = false;
@@ -290,7 +291,7 @@ function wirePreviewSelection() {
   refresh();
 }
 
-cancelPreview.onclick = () => { previewPanel.classList.add('hidden'); state.preview = null; };
+cancelPreview.onclick = () => { hidePreviewModal(); };
 
 approveAll.onclick = async () => {
   if (!state.preview || !state.bucket) return;
@@ -318,8 +319,7 @@ async function submitDeletions(keys) {
   const data = await res.json();
   if (data.error) { setStatus(`Error: ${data.error}`, true); return; }
   setStatus(`Deleted ${data.deleted} objects in ${data.batches} batches.`);
-  previewPanel.classList.add('hidden');
-  state.preview = null;
+  hidePreviewModal();
   await loadListing();
 }
 
@@ -353,6 +353,21 @@ async function annotateSmartMarkers() {
     }
   });
 }
+
+function hidePreviewModal() {
+  if (previewModal) previewModal.classList.add('hidden');
+  state.preview = null;
+}
+
+// Close modal when clicking outside dialog or pressing Escape
+if (previewModal) {
+  previewModal.addEventListener('click', (e) => {
+    if (e.target === previewModal) hidePreviewModal();
+  });
+}
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && previewModal && !previewModal.classList.contains('hidden')) hidePreviewModal();
+});
 
 // (Header collapse removed)
 
