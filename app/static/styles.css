@@ -94,9 +94,11 @@ td.row-actions { text-align: right; width: 80px; }
 .link:hover { color: var(--link-hover); text-decoration: underline; }
 .smart-del { color: var(--warn); font-size: 0.95em; }
 .icon-link { text-decoration: none; margin-right: 6px; }
+.file-ico { opacity: 0.9; margin-right: 4px; }
 
 /* Icon-only small header button */
 .icon-btn { width: 36px; text-align: center; font-size: 18px; padding: 6px; }
+.icon-btn#copy-link { width: 32px; font-size: 16px; padding: 4px; vertical-align: middle; }
 
 /* Generic hidden utility */
 .hidden { display: none !important; }

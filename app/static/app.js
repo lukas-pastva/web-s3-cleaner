@@ -14,6 +14,7 @@ const btnPrev = document.getElementById('prev');
 const btnNext = document.getElementById('next');
 const bucketsSpinner = document.getElementById('buckets-spinner');
 const themeToggle = document.getElementById('theme-toggle');
+const copyLinkBtn = document.getElementById('copy-link');
 // Preview panel elements
 const previewPanel = document.getElementById('preview-panel');
 const previewModal = document.getElementById('preview-modal');
@@ -116,7 +117,7 @@ async function loadBuckets() {
     bucketsEl.innerHTML = '';
     data.buckets.forEach(b => {
       const li = document.createElement('li');
-      li.textContent = b;
+      li.textContent = `🪣 ${b}`;
       li.onclick = () => selectBucket(b);
       bucketsEl.appendChild(li);
     });
@@ -127,7 +128,7 @@ async function loadBuckets() {
 
 function renderBreadcrumbs() {
   const parts = state.prefix ? state.prefix.split('/').filter(Boolean) : [];
-  const crumbs = [{ label: '(root)', prefix: '' }];
+  const crumbs = [{ label: '🏠 root', prefix: '' }];
   let cur = '';
   for (const p of parts) {
     cur += p + '/';
@@ -189,7 +190,7 @@ async function loadListing(token) {
       const tr = document.createElement('tr');
       tr.setAttribute('data-key', o.key);
       const dl = `/api/buckets/${encodeURIComponent(state.bucket)}/download?key=${encodeURIComponent(o.key)}`;
-      tr.innerHTML = `<td class="name-cell"><a class="icon-link" href="${dl}" title="Download" target="_blank" rel="noopener">⬇️</a> ${name}</td><td>${fmtBytes(o.size)}</td><td>${o.last_modified || ''}</td><td class="row-actions"><button class="del-btn" data-key="${encodeURIComponent(o.key)}" title="Delete this file" aria-label="Delete">🗑️</button></td>`;
+      tr.innerHTML = `<td class="name-cell"><a class="icon-link" href="${dl}" title="Download" target="_blank" rel="noopener">⬇️</a> <span class="file-ico">📄</span>${name}</td><td>${fmtBytes(o.size)}</td><td>${o.last_modified || ''}</td><td class="row-actions"><button class="del-btn" data-key="${encodeURIComponent(o.key)}" title="Delete this file" aria-label="Delete">🗑️</button></td>`;
       rowsEl.appendChild(tr);
       const btn = tr.querySelector('.del-btn');
       btn.onclick = async () => {
@@ -423,6 +424,18 @@ async function annotateSmartMarkers() {
       td.appendChild(icon);
     }
   });
+}
+
+// Copy share link
+if (copyLinkBtn) {
+  copyLinkBtn.onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setStatus('Link copied to clipboard.');
+    } catch (e) {
+      setStatus('Failed to copy link', true);
+    }
+  };
 }
 
 function updateSortIndicators() {
