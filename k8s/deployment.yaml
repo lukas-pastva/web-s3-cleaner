@@ -23,8 +23,19 @@ spec:
           env:
             - name: S3_BUCKETS
               value: "bucket-a,bucket-b" # comma-separated allowed buckets
-            - name: AWS_REGION
-              value: "us-east-1"
+            # Hetzner S3-compatible: multiple comma-separated credentials/endpoints
+            - name: S3_ENDPOINT_URLS
+              value: "https://s3.eu-central-1.hetzner.cloud,https://s3.us-east-1.hetzner.cloud"
+            - name: S3_ACCESS_KEY_IDS
+              valueFrom:
+                secretKeyRef:
+                  name: web-s3-cleaner-secrets
+                  key: s3_access_key_ids # comma-separated keys in a single secret field
+            - name: S3_SECRET_ACCESS_KEYS
+              valueFrom:
+                secretKeyRef:
+                  name: web-s3-cleaner-secrets
+                  key: s3_secret_access_keys # comma-separated secrets in a single secret field
           readinessProbe:
             httpGet:
               path: /api/healthz
@@ -44,4 +55,3 @@ spec:
             limits:
               cpu: 500m
               memory: 512Mi
-
