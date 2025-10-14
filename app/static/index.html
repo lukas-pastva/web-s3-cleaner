@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Web S3 Cleaner</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Web S3 Cleaner</h1>
+    </header>
+    <main>
+      <aside id="sidebar">
+        <h2>Buckets</h2>
+        <ul id="buckets"></ul>
+      </aside>
+      <section id="content">
+        <div id="bucket-actions" class="hidden">
+          <h2 id="bucket-title"></h2>
+          <button id="btn-cleanup">Cleanup (>30 days)</button>
+          <button id="btn-delete-all" class="danger">Delete ALL</button>
+          <div id="breadcrumbs"></div>
+        </div>
+        <div id="listing">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Size</th>
+                <th>Last Modified</th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+          <div id="pager">
+            <button id="prev" disabled>Prev</button>
+            <button id="next" disabled>Next</button>
+          </div>
+        </div>
+        <pre id="status"></pre>
+      </section>
+    </main>
+    <script src="/static/app.js"></script>
+  </body>
+  </html>
+

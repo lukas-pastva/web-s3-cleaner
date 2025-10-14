@@ -1,0 +1,70 @@
+import os
+from flask import Flask, jsonify, request, send_from_directory
+from .s3_utils import (
+    get_allowed_buckets,
+    list_objects_page,
+    delete_all_objects,
+    cleanup_old_objects,
+)
+
+
+def create_app():
+    app = Flask(__name__, static_folder="static", static_url_path="/static")
+
+    @app.get("/api/healthz")
+    def healthz():
+        return jsonify({"status": "ok"})
+
+    @app.get("/api/buckets")
+    def list_buckets():
+        buckets = get_allowed_buckets()
+        return jsonify({"buckets": buckets})
+
+    def _ensure_allowed(bucket: str):
+        allowed = set(get_allowed_buckets())
+        if bucket not in allowed:
+            return False
+        return True
+
+    @app.get("/api/buckets/<bucket>/list")
+    def list_bucket_contents(bucket):
+        if not _ensure_allowed(bucket):
+            return jsonify({"error": "Bucket not allowed"}), 400
+        prefix = request.args.get("prefix") or None
+        token = request.args.get("token") or None
+        try:
+            data = list_objects_page(bucket=bucket, prefix=prefix, continuation_token=token)
+            return jsonify(data)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    @app.post("/api/buckets/<bucket>/delete-all")
+    def delete_all(bucket):
+        if not _ensure_allowed(bucket):
+            return jsonify({"error": "Bucket not allowed"}), 400
+        result = delete_all_objects(bucket)
+        code = 200 if "error" not in result else 500
+        return jsonify(result), code
+
+    @app.post("/api/buckets/<bucket>/cleanup")
+    def cleanup(bucket):
+        if not _ensure_allowed(bucket):
+            return jsonify({"error": "Bucket not allowed"}), 400
+        days = request.args.get("days", default=30, type=int)
+        result = cleanup_old_objects(bucket, days=days)
+        code = 200 if "error" not in result else 500
+        return jsonify(result), code
+
+    @app.get("/")
+    def index():
+        return send_from_directory(app.static_folder, "index.html")
+
+    return app
+
+
+app = create_app()
+
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", "8000"))
+    app.run(host="0.0.0.0", port=port)
+
