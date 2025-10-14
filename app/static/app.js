@@ -44,7 +44,10 @@ function computeAutoTheme() {
 function applyTheme(mode = getThemeMode()) {
   const m = mode === 'auto' ? computeAutoTheme() : mode;
   document.documentElement.setAttribute('data-theme', m);
-  themeToggle.textContent = `Theme: ${mode.charAt(0).toUpperCase() + mode.slice(1)}`;
+  const icon = mode === 'auto' ? '🌓' : (mode === 'light' ? '☀️' : '🌙');
+  themeToggle.textContent = icon;
+  themeToggle.title = `Theme: ${mode.charAt(0).toUpperCase() + mode.slice(1)}`;
+  themeToggle.setAttribute('aria-label', themeToggle.title);
 }
 let autoTimer = null;
 function scheduleAutoRecalc() {

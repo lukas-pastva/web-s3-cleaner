@@ -14,6 +14,8 @@
   --hover: #0b1220;
   --button: #334155;
   --button-hover: #475569;
+  --link: #93c5fd;
+  --link-hover: #bfdbfe;
 }
 
 :root[data-theme="light"] {
@@ -28,6 +30,8 @@
   --hover: #eef2f7;
   --button: #e2e8f0;
   --button-hover: #cbd5e1;
+  --link: #1d4ed8; /* darker blue for readability */
+  --link-hover: #1e40af;
 }
 
 * { box-sizing: border-box; }
@@ -66,6 +70,8 @@ tbody tr:hover { background: var(--hover); }
 
 .link { color: #93c5fd; cursor: pointer; }
 .link:hover { text-decoration: underline; }
+.link { color: var(--link); cursor: pointer; }
+.link:hover { color: var(--link-hover); text-decoration: underline; }
 .smart-del { color: var(--danger); font-size: 0.95em; }
 
 /* Preview panel */
