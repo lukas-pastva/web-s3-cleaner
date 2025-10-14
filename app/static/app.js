@@ -13,8 +13,6 @@ const btnPrev = document.getElementById('prev');
 const btnNext = document.getElementById('next');
 const bucketsSpinner = document.getElementById('buckets-spinner');
 const themeToggle = document.getElementById('theme-toggle');
-const headerEl = document.getElementById('topbar');
-const headerToggle = document.getElementById('header-toggle');
 // Preview panel elements
 const previewPanel = document.getElementById('preview-panel');
 const previewInfo = document.getElementById('preview-info');
@@ -356,27 +354,7 @@ async function annotateSmartMarkers() {
   });
 }
 
-// Header collapse persistence
-const COLLAPSE_KEY = 'ws3c:headerCollapsed';
-function applyHeaderCollapsed(val) {
-  if (!headerEl) return;
-  headerEl.classList.toggle('collapsed', !!val);
-  headerToggle.title = val ? 'Expand top bar' : 'Collapse top bar';
-  headerToggle.setAttribute('aria-label', headerToggle.title);
-  headerToggle.textContent = val ? '▴' : '▾';
-}
-function initHeaderCollapse() {
-  const saved = localStorage.getItem(COLLAPSE_KEY) === '1';
-  applyHeaderCollapsed(saved);
-  headerToggle.onclick = () => {
-    const current = headerEl.classList.contains('collapsed');
-    const next = !current;
-    localStorage.setItem(COLLAPSE_KEY, next ? '1' : '0');
-    applyHeaderCollapsed(next);
-  };
-}
-
-initHeaderCollapse();
+// (Header collapse removed)
 
 // URL sync (bucket/prefix in path)
 function buildPath(bucket, prefix) {
