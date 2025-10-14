@@ -155,7 +155,7 @@ async function loadListing(token) {
     data.folders.forEach(f => {
       const name = f.replace(state.prefix, '').replace(/\/$/, '');
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td><span class="link">📁 ${name}</span></td><td></td><td></td>`;
+      tr.innerHTML = `<td><span class="link">📁 ${name}</span></td><td></td><td></td><td></td>`;
       tr.querySelector('.link').onclick = () => {
         state.prefix = f; state.tokenStack = []; state.nextToken = null; updateURL(); loadListing();
       };
@@ -167,8 +167,14 @@ async function loadListing(token) {
       const tr = document.createElement('tr');
       tr.setAttribute('data-key', o.key);
       const dl = `/api/buckets/${encodeURIComponent(state.bucket)}/download?key=${encodeURIComponent(o.key)}`;
-      tr.innerHTML = `<td class="name-cell"><a class="icon-link" href="${dl}" title="Download" target="_blank" rel="noopener">⬇️</a> ${name}</td><td>${fmtBytes(o.size)}</td><td>${o.last_modified || ''}</td>`;
+      tr.innerHTML = `<td class="name-cell"><a class="icon-link" href="${dl}" title="Download" target="_blank" rel="noopener">⬇️</a> ${name}</td><td>${fmtBytes(o.size)}</td><td>${o.last_modified || ''}</td><td class="row-actions"><button class="del-btn" data-key="${encodeURIComponent(o.key)}" title="Delete this file" aria-label="Delete">🗑️</button></td>`;
       rowsEl.appendChild(tr);
+      const btn = tr.querySelector('.del-btn');
+      btn.onclick = async () => {
+        const key = decodeURIComponent(btn.getAttribute('data-key'));
+        if (!confirm(`Delete this file?\n\n${key}`)) return;
+        await submitDeletions([key]);
+      };
     });
     state.nextToken = data.next_token || null;
     btnNext.disabled = !state.nextToken;
