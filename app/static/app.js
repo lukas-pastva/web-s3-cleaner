@@ -16,6 +16,9 @@ const btnNext = document.getElementById('next');
 const pagerSpinner = document.getElementById('pager-spinner');
 const bucketsSpinner = document.getElementById('buckets-spinner');
 const themeToggle = document.getElementById('theme-toggle');
+const menuToggle = document.getElementById('menu-toggle');
+const sidebar = document.getElementById('sidebar');
+const sidebarBackdrop = document.getElementById('sidebar-backdrop');
 // Preview panel elements
 const previewPanel = document.getElementById('preview-panel');
 const previewModal = document.getElementById('preview-modal');
@@ -240,6 +243,8 @@ function selectBucket(bucket) {
   bucketActionsEl.classList.remove('hidden');
   updateURL();
   loadListing();
+  // Close sidebar on mobile after selecting a bucket
+  closeSidebar();
 }
 
 btnNext.onclick = () => {
@@ -485,6 +490,22 @@ loadBuckets().catch(e => setStatus(String(e), true));
 initTheme();
 initSortHeaders();
 
+// Sidebar toggle for mobile
+function openSidebar() {
+  document.body.classList.add('sidebar-open');
+  if (menuToggle) menuToggle.setAttribute('aria-expanded', 'true');
+}
+function closeSidebar() {
+  document.body.classList.remove('sidebar-open');
+  if (menuToggle) menuToggle.setAttribute('aria-expanded', 'false');
+}
+function toggleSidebar() {
+  if (document.body.classList.contains('sidebar-open')) closeSidebar();
+  else openSidebar();
+}
+if (menuToggle) menuToggle.onclick = toggleSidebar;
+if (sidebarBackdrop) sidebarBackdrop.onclick = closeSidebar;
+
 async function annotateSmartMarkers() {
   // Remove previous markers
   [...rowsEl.querySelectorAll('.smart-del')].forEach(el => el.remove());
@@ -591,7 +612,13 @@ if (previewModal) {
   });
 }
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && previewModal && !previewModal.classList.contains('hidden')) hidePreviewModal();
+  if (e.key === 'Escape') {
+    if (previewModal && !previewModal.classList.contains('hidden')) {
+      hidePreviewModal();
+    } else if (document.body.classList.contains('sidebar-open')) {
+      closeSidebar();
+    }
+  }
 });
 
 function setPreviewStatus(msg, isError = false) {
