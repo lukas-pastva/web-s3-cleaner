@@ -20,6 +20,9 @@ const themeToggle = document.getElementById('theme-toggle');
 const menuToggle = document.getElementById('menu-toggle');
 const sidebar = document.getElementById('sidebar');
 const sidebarBackdrop = document.getElementById('sidebar-backdrop');
+const landingEl = document.getElementById('landing');
+const bucketsGrid = document.getElementById('buckets-grid');
+const homeLink = document.getElementById('home-link');
 // Preview panel elements
 const previewPanel = document.getElementById('preview-panel');
 const previewModal = document.getElementById('preview-modal');
@@ -127,6 +130,26 @@ async function loadBuckets() {
       li.onclick = () => selectBucket(b);
       bucketsEl.appendChild(li);
     });
+    // Render landing grid
+    if (bucketsGrid) {
+      if (!data.buckets || data.buckets.length === 0) {
+        bucketsGrid.innerHTML = '<div class="muted">No buckets found.</div>';
+      } else {
+        const frag = document.createDocumentFragment();
+        data.buckets.forEach(b => {
+          const card = document.createElement('div');
+          card.className = 'bucket-card';
+          card.setAttribute('role', 'button');
+          card.setAttribute('tabindex', '0');
+          card.innerHTML = `<div class="icon">🪣</div><div class="name">${b}</div>`;
+          card.onclick = () => selectBucket(b);
+          card.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectBucket(b); } };
+          frag.appendChild(card);
+        });
+        bucketsGrid.innerHTML = '';
+        bucketsGrid.appendChild(frag);
+      }
+    }
   } finally {
     bucketsSpinner && bucketsSpinner.classList.add('hidden');
   }
@@ -243,9 +266,27 @@ function selectBucket(bucket) {
   state.nextToken = null;
   bucketTitleEl.textContent = bucket;
   bucketActionsEl.classList.remove('hidden');
+  // Switch from landing to listing
+  if (landingEl) landingEl.classList.add('hidden');
+  if (listingEl) listingEl.classList.remove('hidden');
   updateURL();
   loadListing();
   // Close sidebar on mobile after selecting a bucket
+  closeSidebar();
+}
+
+function goHome() {
+  state.bucket = null;
+  state.prefix = '';
+  state.tokenStack = [];
+  state.nextToken = null;
+  if (bucketTitleEl) bucketTitleEl.textContent = '';
+  if (bucketActionsEl) bucketActionsEl.classList.add('hidden');
+  if (landingEl) landingEl.classList.remove('hidden');
+  if (listingEl) listingEl.classList.add('hidden');
+  if (previewModal && !previewModal.classList.contains('hidden')) hidePreviewModal();
+  setStatus('');
+  history.pushState({}, '', '/');
   closeSidebar();
 }
 
@@ -507,6 +548,7 @@ function toggleSidebar() {
 }
 if (menuToggle) menuToggle.onclick = toggleSidebar;
 if (sidebarBackdrop) sidebarBackdrop.onclick = closeSidebar;
+if (homeLink) homeLink.onclick = (e) => { e.preventDefault(); goHome(); };
 
 async function annotateSmartMarkers() {
   // Remove previous markers
@@ -675,7 +717,16 @@ window.addEventListener('popstate', (ev) => {
     state.nextToken = null;
     bucketTitleEl.textContent = state.bucket;
     bucketActionsEl.classList.remove('hidden');
+    if (landingEl) landingEl.classList.add('hidden');
+    if (listingEl) listingEl.classList.remove('hidden');
     loadListing();
+  } else {
+    // No bucket in path: show landing
+    state.bucket = null;
+    state.prefix = '';
+    if (bucketActionsEl) bucketActionsEl.classList.add('hidden');
+    if (landingEl) landingEl.classList.remove('hidden');
+    if (listingEl) listingEl.classList.add('hidden');
   }
 });
 
@@ -688,5 +739,11 @@ if (initial && initial.bucket) {
   updateURL(true);
   bucketTitleEl.textContent = state.bucket;
   bucketActionsEl.classList.remove('hidden');
+  if (landingEl) landingEl.classList.add('hidden');
+  if (listingEl) listingEl.classList.remove('hidden');
   loadListing();
+} else {
+  // Landing state initially
+  if (landingEl) landingEl.classList.remove('hidden');
+  if (listingEl) listingEl.classList.add('hidden');
 }

@@ -19,11 +19,28 @@
     </header>
     <main>
       <aside id="sidebar">
-        <h2>🪣 Buckets <span id="buckets-spinner" class="spinner small hidden" title="Loading"></span></h2>
+        <h2><button id="home-link" class="unstyled-btn" aria-label="Go to homepage" title="Go to homepage">🪣 Buckets</button> <span id="buckets-spinner" class="spinner small hidden" title="Loading"></span></h2>
         <ul id="buckets"></ul>
       </aside>
       <div id="sidebar-backdrop" aria-hidden="true"></div>
       <section id="content">
+        <div id="landing" class="landing">
+          <h2>🪣 Your S3 Buckets</h2>
+          <div class="muted">Select a bucket to browse and clean up.</div>
+          <div class="help-card">
+            <h3>Getting Started</h3>
+            <ul class="help-list">
+              <li>Choose a bucket from the grid or sidebar.</li>
+              <li>Navigate folders with the breadcrumbs above the table.</li>
+              <li>Use Smart cleanup to safely remove stale files and folders.</li>
+              <li>Review the preview and approve deletions in batches.</li>
+            </ul>
+            <div class="muted">Tip: Use the theme button to switch Light/Dark/Auto.</div>
+          </div>
+          <div id="buckets-grid" class="buckets-grid" aria-live="polite">
+            <div class="muted">Loading buckets…</div>
+          </div>
+        </div>
         <div id="bucket-actions" class="hidden">
           <div class="actions-row">
             <h2 id="bucket-title"></h2>
@@ -36,7 +53,7 @@
           <div id="breadcrumbs"></div>
           <div id="counts" class="muted small">📄 Files: <span id="count-files">0</span> • 📁 Folders: <span id="count-folders">0</span> <span id="count-spinner" class="spinner small hidden" title="Counting"></span></div>
         </div>
-        <div id="listing">
+        <div id="listing" class="hidden">
           <div id="listing-overlay" class="overlay hidden" aria-hidden="true">
             <div class="spinner large" aria-label="Loading"></div>
           </div>

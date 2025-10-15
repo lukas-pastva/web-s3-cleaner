@@ -57,6 +57,14 @@ aside#sidebar li { padding: 8px; cursor: pointer; border-radius: 6px; }
 aside#sidebar li:hover { background: var(--hover); }
 
 section#content { flex: 1; padding: 16px; display: flex; flex-direction: column; overflow: hidden; }
+#landing.landing { display: flex; flex-direction: column; gap: 10px; }
+.buckets-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.bucket-card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: transform 0.12s ease, box-shadow 0.12s ease; }
+.bucket-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,0.25); }
+.bucket-card .icon { font-size: 24px; }
+.bucket-card .name { font-weight: 600; }
+.help-card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+.help-list { margin: 6px 0 0 18px; }
 #bucket-actions { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
 #bucket-actions.hidden { display: none; }
 #bucket-actions .actions-row { display: flex; align-items: center; gap: 12px; }
@@ -101,6 +109,9 @@ tbody td .link:hover { text-decoration: none; }
 
 /* Icon-only small header button */
 .icon-btn { width: 36px; text-align: center; font-size: 18px; padding: 6px; }
+/* Unstyled button for clickable headings */
+.unstyled-btn { background: none; border: none; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+.unstyled-btn:hover { text-decoration: underline; }
 
 
 /* Generic hidden utility */
