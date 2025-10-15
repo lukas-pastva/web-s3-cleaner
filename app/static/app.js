@@ -366,6 +366,11 @@ function showPreview(preview) {
   previewInfo.textContent = `${scope} — ${preview.candidates.length} files planned for deletion ${extra}`;
   // Render list
   previewList.innerHTML = '';
+  // Header row for readability
+  const head = document.createElement('div');
+  head.className = 'preview-head';
+  head.innerHTML = `<div></div><div>Path</div><div>Last Modified</div><div>Size</div>`;
+  previewList.appendChild(head);
   const frag = document.createDocumentFragment();
   preview.candidates.forEach((c, idx) => {
     const row = document.createElement('div');
