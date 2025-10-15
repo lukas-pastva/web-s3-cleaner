@@ -127,16 +127,16 @@ tbody td .link:hover { text-decoration: none; }
 #preview-panel { padding: 16px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; }
 #preview-panel .panel-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 #preview-panel .panel-header .actions { flex-wrap: wrap; row-gap: 6px; }
-#preview-panel h3 { margin: 0; }
+#preview-panel h3 { margin: 0; font-size: 1rem; }
 #preview-panel .actions { display: flex; align-items: center; gap: 8px; }
 #preview-info { color: var(--muted); margin-top: 8px; }
-#preview-status { margin-top: 10px; color: #fff; background: var(--accent); padding: 8px 10px; border-radius: 8px; }
+#preview-status { margin-top: 10px; color: #fff; background: var(--accent); padding: 8px 10px; border-radius: 8px; font-size: 0.9em; }
 #preview-status.error { background: var(--danger); color: #fff; }
 #preview-list { margin-top: 10px; max-height: min(60vh, 560px); overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
-.preview-head { position: sticky; top: 0; z-index: 1; background: var(--panel); display: grid; grid-template-columns: 28px 1fr 180px 120px; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--muted); font-weight: 600; font-size: 0.9em; }
+.preview-head { position: sticky; top: 0; z-index: 1; background: var(--panel); display: grid; grid-template-columns: 28px 1fr 180px 120px; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--muted); font-weight: 600; font-size: 0.85em; }
 .preview-item { display: grid; grid-template-columns: 28px 1fr 180px 120px; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--border); align-items: center; }
 .preview-item:last-child { border-bottom: none; }
-.preview-item .path { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: 0.9em; line-height: 1.35; word-break: break-word; }
+.preview-item .path { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: 0.85em; line-height: 1.35; word-break: break-word; }
 .preview-item .muted { white-space: nowrap; }
 .muted { color: var(--muted); }
 
@@ -150,13 +150,13 @@ tbody td .link:hover { text-decoration: none; }
 /* Modal overlay */
 .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; }
 .modal.hidden { display: none; }
-.modal .dialog { width: clamp(320px, 96vw, 1040px); max-height: 86vh; overflow: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+.modal .dialog { width: 100vw; max-width: 100vw; max-height: 86vh; overflow: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 0; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
 
 /* Responsive preview modal adjustments */
 @media (max-width: 800px) {
   .preview-head { grid-template-columns: 28px 1fr 140px 96px; font-size: 0.85em; }
   .preview-item { grid-template-columns: 28px 1fr 140px 96px; }
-  .preview-item .path { font-size: 0.88em; }
+  .preview-item .path { font-size: 0.82em; }
 }
 @media (max-width: 620px) {
   .preview-head { grid-template-columns: 28px 1fr; }
