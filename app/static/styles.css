@@ -138,6 +138,8 @@ tbody td .link:hover { text-decoration: none; }
 .preview-item:last-child { border-bottom: none; }
 .preview-item .path { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: 0.85em; line-height: 1.35; word-break: break-word; }
 .preview-item .muted { white-space: nowrap; }
+.preview-item .date, .preview-item .size { font-size: 0.8em; overflow: hidden; text-overflow: ellipsis; }
+.preview-item > *, .preview-head > * { min-width: 0; }
 .muted { color: var(--muted); }
 
 /* Delete progress */
@@ -150,7 +152,7 @@ tbody td .link:hover { text-decoration: none; }
 /* Modal overlay */
 .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; }
 .modal.hidden { display: none; }
-.modal .dialog { width: 100vw; max-width: 100vw; max-height: 86vh; overflow: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 0; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+.modal .dialog { width: min(1040px, 95vw); max-width: 95vw; max-height: 86vh; overflow: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
 
 /* Responsive preview modal adjustments */
 @media (max-width: 800px) {

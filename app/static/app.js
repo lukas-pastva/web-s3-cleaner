@@ -378,8 +378,8 @@ function showPreview(preview) {
     row.innerHTML = `
       <input type="checkbox" class="candidate" data-key="${encodeURIComponent(c.key)}" />
       <div class="path">${c.key}</div>
-      <div class="muted">${c.last_modified || ''}</div>
-      <div class="muted">${fmtBytes(c.size)}</div>
+      <div class="muted date">${c.last_modified || ''}</div>
+      <div class="muted size">${fmtBytes(c.size)}</div>
     `;
     frag.appendChild(row);
   });
