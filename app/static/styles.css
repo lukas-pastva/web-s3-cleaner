@@ -176,14 +176,14 @@ tbody td .link:hover { text-decoration: none; }
 
 /* Responsive: mobile layout and collapsible sidebar */
 @media (max-width: 900px) {
-  /* Make table layout predictable on mobile and favor first (Name) column */
-  #listing table { table-layout: fixed; }
-  /* Keep Name on one line, allow ellipsis */
+  /* Let the table auto-size so Name can take needed space */
+  #listing table { table-layout: auto; }
+  /* Keep Name on one line, allow ellipsis when truly necessary */
   #listing td.name-cell, #listing th:nth-child(1) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  /* Constrain Size, Modified, Actions columns to free space for Name */
-  #listing th:nth-child(2), #listing td:nth-child(2) { width: 84px; }
-  #listing th:nth-child(3), #listing td:nth-child(3) { width: 118px; }
-  #listing th:nth-child(4), #listing td:nth-child(4) { width: 80px; }
+  /* Prevent wrapping in Size/Modified/Actions but don't force fixed widths */
+  #listing th:nth-child(2), #listing td:nth-child(2),
+  #listing th:nth-child(3), #listing td:nth-child(3),
+  #listing th:nth-child(4), #listing td:nth-child(4) { white-space: nowrap; }
   /* Show burger only on small screens */
   #menu-toggle { display: inline-block; }
   /* Sidebar becomes an off-canvas drawer */
