@@ -369,7 +369,7 @@ function showPreview(preview) {
   // Header row for readability
   const head = document.createElement('div');
   head.className = 'preview-head';
-  head.innerHTML = `<div></div><div>Path</div><div>Last Modified</div><div>Size</div>`;
+  head.innerHTML = `<div></div><div>Path</div><div>Modified</div><div>Size</div>`;
   previewList.appendChild(head);
   const frag = document.createDocumentFragment();
   preview.candidates.forEach((c, idx) => {

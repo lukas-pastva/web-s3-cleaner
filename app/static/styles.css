@@ -86,6 +86,9 @@ thead th[data-sort] { cursor: pointer; user-select: none; }
 thead th .sort-icon { opacity: 0.5; margin-left: 4px; font-size: 0.9em; }
 thead th.sorted .sort-icon { opacity: 1; }
 td.row-actions { text-align: right; width: 80px; }
+
+/* Prevent multi-line wrapping for names and ellipsize when constrained */
+.name-cell { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .del-btn { background: transparent; color: var(--danger); border: none; cursor: pointer; padding: 4px 6px; border-radius: 6px; font-size: 16px; }
 .del-btn:hover { background: rgba(239, 68, 68, 0.12); }
 /* listing overlay */
@@ -173,6 +176,14 @@ tbody td .link:hover { text-decoration: none; }
 
 /* Responsive: mobile layout and collapsible sidebar */
 @media (max-width: 900px) {
+  /* Make table layout predictable on mobile and favor first (Name) column */
+  #listing table { table-layout: fixed; }
+  /* Keep Name on one line, allow ellipsis */
+  #listing td.name-cell, #listing th:nth-child(1) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* Constrain Size, Modified, Actions columns to free space for Name */
+  #listing th:nth-child(2), #listing td:nth-child(2) { width: 84px; }
+  #listing th:nth-child(3), #listing td:nth-child(3) { width: 118px; }
+  #listing th:nth-child(4), #listing td:nth-child(4) { width: 80px; }
   /* Show burger only on small screens */
   #menu-toggle { display: inline-block; }
   /* Sidebar becomes an off-canvas drawer */
