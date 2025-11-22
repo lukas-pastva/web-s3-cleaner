@@ -307,7 +307,14 @@ async function loadListing(token) {
       const rel = formatRelativeTime(o.last_modified);
       const exact = formatExactTimestamp(o.last_modified);
       const abs = formatLocalDate(o.last_modified);
-      tr.innerHTML = `<td class="name-cell"><a class="icon-link" href="${dl}" title="Download" target="_blank" rel="noopener">📥</a> <span class="file-ico">📄</span>${name}</td><td>${fmtBytes(o.size)}</td><td title="${exact}">${rel || abs}</td><td class="row-actions"><button class="del-btn" data-key="${encodeURIComponent(o.key)}" title="Delete this file" aria-label="Delete">🗑️</button></td>`;
+      tr.innerHTML = `
+        <td class="name-cell"><span class="file-ico">📄</span>${name}</td>
+        <td>${fmtBytes(o.size)}</td>
+        <td title="${exact}">${rel || abs}</td>
+        <td class="row-actions">
+          <a class="icon-link" href="${dl}" title="Download" target="_blank" rel="noopener">📥</a>
+          <button class="del-btn" data-key="${encodeURIComponent(o.key)}" title="Delete this file" aria-label="Delete">🗑️</button>
+        </td>`;
       rowsEl.appendChild(tr);
       const btn = tr.querySelector('.del-btn');
       btn.onclick = async () => {
