@@ -312,14 +312,27 @@ async function loadListing(token) {
       const exact = formatExactTimestamp(o.last_modified);
       const abs = formatLocalDate(o.last_modified);
       tr.innerHTML = `
-        <td class="name-cell"><span class="file-ico">📄</span>${name}</td>
+        <td class="name-cell"><span class="link" role="link" tabindex="0" title="Download file"><span class="file-ico">📄</span>${name}</span></td>
         <td>${fmtBytes(o.size)}</td>
         <td title="${exact}">${rel || abs}</td>
         <td class="row-actions">
-          <a class="icon-link" href="${dl}" title="Download" target="_blank" rel="noopener">📥</a>
           <button class="del-btn" data-key="${encodeURIComponent(o.key)}" title="Delete this file" aria-label="Delete">🗑️</button>
         </td>`;
       rowsEl.appendChild(tr);
+      // Clicking the file name downloads it in a new tab
+      const fileLink = tr.querySelector('td.name-cell .link');
+      if (fileLink) {
+        fileLink.onclick = (e) => {
+          e.preventDefault();
+          window.open(dl, '_blank', 'noopener');
+        };
+        fileLink.onkeydown = (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            window.open(dl, '_blank', 'noopener');
+          }
+        };
+      }
       const btn = tr.querySelector('.del-btn');
       btn.onclick = async () => {
         const key = decodeURIComponent(btn.getAttribute('data-key'));
