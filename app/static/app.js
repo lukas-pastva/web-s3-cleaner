@@ -401,18 +401,51 @@ btnCleanup.onclick = async () => {
 
 btnDeleteAll.onclick = async () => {
   if (!state.bucket) return;
-  // Triple confirmation: two confirms + bucket name prompt
-  if (!confirm(`Delete ALL objects in ${state.bucket}? (1/3)`)) return;
-  if (!confirm('This action is irreversible. Continue? (2/3)')) return;
-  const typed = prompt(`Type the bucket name to confirm (3/3):`);
-  if (typed !== state.bucket) { setStatus('Bucket name mismatch. Aborted.', true); return; }
-  setStatus('Deleting all objects...');
-  const res = await fetch(`/api/buckets/${encodeURIComponent(state.bucket)}/delete-all`, { method: 'POST' });
-  const data = await res.json();
-  if (data.error) setStatus(`Error: ${data.error}`, true);
-  else setStatus(`Delete-all done. Deleted ${data.deleted} objects in ${data.batches} batches.`);
-  await loadListing();
+  // Preview ALL files within current scope (bucket or prefix), similar to Smart cleanup
+  setStatus('Preparing delete-all preview...');
+  try {
+    const candidates = await collectAllObjects(state.bucket, state.prefix);
+    showPreview({ type: 'all', bucket: state.bucket, candidates, meta: { prefix: state.prefix } });
+    // Override info line to reflect delete-all semantics
+    if (typeof previewInfo !== 'undefined' && previewInfo) {
+      const scope = state.prefix ? `Prefix "${state.prefix}"` : 'Entire bucket';
+      previewInfo.textContent = `${scope} — ${candidates.length} files planned for deletion (all files)`;
+    }
+    setStatus('');
+  } catch (e) {
+    setStatus(`Error: ${e && e.message ? e.message : String(e)}`, true);
+  }
 };
+
+// Collect all objects recursively by traversing folders using the listing API
+async function collectAllObjects(bucket, prefix) {
+  const out = [];
+  const seen = new Set();
+  const queue = [prefix || ''];
+  while (queue.length) {
+    const cur = queue.shift();
+    let token = null;
+    let pages = 0; // safety
+    while (true) {
+      const params = new URLSearchParams();
+      if (cur) params.set('prefix', cur);
+      if (token) params.set('token', token);
+      const res = await fetch(`/api/buckets/${encodeURIComponent(bucket)}/list?${params.toString()}`);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      if (Array.isArray(data.objects)) out.push(...data.objects);
+      if (Array.isArray(data.folders)) {
+        for (const f of data.folders) {
+          if (!seen.has(f)) { seen.add(f); queue.push(f); }
+        }
+      }
+      token = data.next_token || null;
+      pages += 1;
+      if (!token || pages > 100000) break;
+    }
+  }
+  return out;
+}
 
 btnSmartCleanup.onclick = async () => {
   if (!state.bucket) return;
