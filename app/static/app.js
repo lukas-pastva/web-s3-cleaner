@@ -223,7 +223,9 @@ async function loadBuckets() {
 
 function renderBreadcrumbs() {
   const parts = state.prefix ? state.prefix.split('/').filter(Boolean) : [];
-  const crumbs = [{ label: '🏠 root', prefix: '' }];
+  // Show the bucket name as the root breadcrumb
+  const rootLabel = state.bucket ? `🪣 ${state.bucket}` : '🏠 root';
+  const crumbs = [{ label: rootLabel, prefix: '' }];
   let cur = '';
   for (const p of parts) {
     cur += p + '/';
@@ -352,7 +354,6 @@ function selectBucket(bucket) {
   state.prefix = '';
   state.tokenStack = [];
   state.nextToken = null;
-  bucketTitleEl.textContent = bucket;
   bucketActionsEl.classList.remove('hidden');
   // Switch from landing to listing
   if (landingEl) landingEl.classList.add('hidden');
@@ -829,7 +830,6 @@ window.addEventListener('popstate', (ev) => {
     state.prefix = parsed.prefix || '';
     state.tokenStack = [];
     state.nextToken = null;
-    bucketTitleEl.textContent = state.bucket;
     bucketActionsEl.classList.remove('hidden');
     if (landingEl) landingEl.classList.add('hidden');
     if (listingEl) listingEl.classList.remove('hidden');
@@ -851,7 +851,6 @@ if (initial && initial.bucket) {
   state.prefix = initial.prefix || '';
   // reflect current without adding to history again
   updateURL(true);
-  bucketTitleEl.textContent = state.bucket;
   bucketActionsEl.classList.remove('hidden');
   if (landingEl) landingEl.classList.add('hidden');
   if (listingEl) listingEl.classList.remove('hidden');
