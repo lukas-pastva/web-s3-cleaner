@@ -1,5 +1,6 @@
 import os
-from flask import Flask, jsonify, request, send_from_directory, redirect
+import hashlib
+from flask import Flask, jsonify, request, redirect, render_template
 from .s3_utils import (
     get_allowed_buckets,
     list_objects_page,
@@ -16,6 +17,23 @@ from .s3_utils import (
 
 def create_app():
     app = Flask(__name__, static_folder="static", static_url_path="/static")
+
+    # Compute simple content hashes for static assets to use as cache-busting query params
+    def _asset_hash(filename: str) -> str:
+        path = os.path.join(app.static_folder, filename)
+        try:
+            h = hashlib.md5()
+            with open(path, "rb") as f:
+                for chunk in iter(lambda: f.read(8192), b""):
+                    h.update(chunk)
+            return h.hexdigest()[:10]
+        except Exception:
+            try:
+                return str(int(os.path.getmtime(path)))
+            except Exception:
+                return "dev"
+
+    asset_ver = {fn: _asset_hash(fn) for fn in ("styles.css", "app.js", "logo.svg")}
 
     @app.get("/api/healthz")
     def healthz():
@@ -157,16 +175,16 @@ def create_app():
 
     @app.get("/")
     def index():
-        return send_from_directory(app.static_folder, "index.html")
+        return render_template("index.html", asset_ver=asset_ver)
 
     # SPA routes to enable shareable URLs for bucket/prefix
     @app.get("/b/<bucket>")
     def spa_bucket(bucket):
-        return send_from_directory(app.static_folder, "index.html")
+        return render_template("index.html", asset_ver=asset_ver)
 
     @app.get("/b/<bucket>/p/<path:prefix>")
     def spa_prefix(bucket, prefix):
-        return send_from_directory(app.static_folder, "index.html")
+        return render_template("index.html", asset_ver=asset_ver)
 
     @app.get("/api/buckets/<bucket>/download")
     def download_object(bucket):

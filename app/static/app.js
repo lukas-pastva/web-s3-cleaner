@@ -73,7 +73,7 @@ function parseDateFlexible(dt) {
   }
 }
 
-// Absolute local date-time for tooltip or fallback
+// Absolute local date-time for display fallback
 function formatLocalDate(dt) {
   const d = parseDateFlexible(dt);
   if (!d) return dt ? String(dt) : '';
@@ -82,6 +82,21 @@ function formatLocalDate(dt) {
   }
   const pad = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+// Exact timestamp for tooltip (ISO 8601 UTC, with Z)
+function formatExactTimestamp(dt) {
+  if (!dt && dt !== 0) return '';
+  // If backend provided a string, normalize +00:00 to Z and space to T
+  if (typeof dt === 'string') {
+    let s = dt.trim();
+    if (s.length >= 19 && s[10] === ' ') s = s.slice(0, 10) + 'T' + s.slice(11);
+    s = s.replace(/\+00:00$/, 'Z');
+    return s;
+  }
+  const d = parseDateFlexible(dt);
+  if (!d) return String(dt);
+  try { return d.toISOString(); } catch (_) { return String(dt); }
 }
 
 // Relative time like "2 d ago" / "3 h ago"
@@ -290,8 +305,9 @@ async function loadListing(token) {
       tr.setAttribute('data-key', o.key);
       const dl = `/api/buckets/${encodeURIComponent(state.bucket)}/download?key=${encodeURIComponent(o.key)}`;
       const rel = formatRelativeTime(o.last_modified);
+      const exact = formatExactTimestamp(o.last_modified);
       const abs = formatLocalDate(o.last_modified);
-      tr.innerHTML = `<td class="name-cell"><a class="icon-link" href="${dl}" title="Download" target="_blank" rel="noopener">📥</a> <span class="file-ico">📄</span>${name}</td><td>${fmtBytes(o.size)}</td><td title="${abs}">${rel || abs}</td><td class="row-actions"><button class="del-btn" data-key="${encodeURIComponent(o.key)}" title="Delete this file" aria-label="Delete">🗑️</button></td>`;
+      tr.innerHTML = `<td class="name-cell"><a class="icon-link" href="${dl}" title="Download" target="_blank" rel="noopener">📥</a> <span class="file-ico">📄</span>${name}</td><td>${fmtBytes(o.size)}</td><td title="${exact}">${rel || abs}</td><td class="row-actions"><button class="del-btn" data-key="${encodeURIComponent(o.key)}" title="Delete this file" aria-label="Delete">🗑️</button></td>`;
       rowsEl.appendChild(tr);
       const btn = tr.querySelector('.del-btn');
       btn.onclick = async () => {
@@ -433,11 +449,12 @@ function showPreview(preview) {
     const row = document.createElement('div');
     row.className = 'preview-item';
     const rel = formatRelativeTime(c.last_modified);
+    const exact = formatExactTimestamp(c.last_modified);
     const abs = formatLocalDate(c.last_modified);
     row.innerHTML = `
       <input type="checkbox" class="candidate" data-key="${encodeURIComponent(c.key)}" />
       <div class="path">${c.key}</div>
-      <div class="muted date" title="${abs}">${rel || abs}</div>
+      <div class="muted date" title="${exact}">${rel || abs}</div>
       <div class="muted size">${fmtBytes(c.size)}</div>
     `;
     frag.appendChild(row);

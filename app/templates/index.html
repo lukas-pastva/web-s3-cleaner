@@ -4,12 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Web S3 Cleaner</title>
-    <link rel="stylesheet" href="/static/styles.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v={{ asset_ver['styles.css'] }}" />
   </head>
   <body>
     <header id="topbar">
       <div class="brand">
-        <img src="/static/logo.svg" alt="Web S3 Cleaner" class="logo" />
+        <img src="{{ url_for('static', filename='logo.svg') }}?v={{ asset_ver['logo.svg'] }}" alt="Web S3 Cleaner" class="logo" />
         <h1>Web S3 Cleaner</h1>
       </div>
       <div class="header-actions">
@@ -103,6 +103,7 @@
         </div>
       </div>
     </main>
-    <script src="/static/app.js"></script>
+    <script src="{{ url_for('static', filename='app.js') }}?v={{ asset_ver['app.js'] }}"></script>
   </body>
   </html>
+
