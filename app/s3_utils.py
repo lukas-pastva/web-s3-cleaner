@@ -175,7 +175,9 @@ def list_objects_page(
             {
                 "key": key,
                 "size": o.get("Size", 0),
-                "last_modified": o.get("LastModified").isoformat() if o.get("LastModified") else None,
+                "last_modified": (
+                    o.get("LastModified").replace(microsecond=0).isoformat() if o.get("LastModified") else None
+                ),
                 "storage_class": o.get("StorageClass"),
             }
         )
@@ -271,7 +273,7 @@ def cleanup_candidates(bucket: str, days: int = 30, prefix: Optional[str] = None
                 candidates.append({
                     "key": key,
                     "size": o.get("Size", 0),
-                    "last_modified": lm.isoformat(),
+                    "last_modified": lm.replace(microsecond=0).isoformat(),
                 })
     return {"prefix": prefix or "", "days": days, "scanned": scanned, "candidates": candidates}
 
@@ -401,7 +403,11 @@ def smart_cleanup(bucket: str, prefix: Optional[str] = None, dry_run: bool = Fal
         },
         # full candidate list for preview/approval
         "candidates": [
-            {"key": o["key"], "size": o["size"], "last_modified": o["last_modified"].isoformat()}
+            {
+                "key": o["key"],
+                "size": o["size"],
+                "last_modified": o["last_modified"].replace(microsecond=0).isoformat(),
+            }
             for o in to_delete
         ],
     }

@@ -52,6 +52,25 @@ let state = {
   sortDir: 'desc',
 };
 
+// Format an ISO/RFC3339 datetime into local time without milliseconds
+function formatLocalDate(dt) {
+  if (!dt) return '';
+  try {
+    const d = dt instanceof Date ? dt : new Date(dt);
+    if (isNaN(d.getTime())) return String(dt);
+    // Use user's locale settings; no fractional seconds
+    if (typeof d.toLocaleString === 'function') {
+      // Prefer dateStyle/timeStyle for consistent, localized display
+      return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'medium' });
+    }
+    // Fallback
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  } catch (_) {
+    return String(dt);
+  }
+}
+
 // Theme handling (Auto/Light/Dark) with daytime-based auto and persistence
 const THEME_KEY = 'ws3c:themeMode'; // auto|light|dark
 function getThemeMode() {
@@ -234,7 +253,7 @@ async function loadListing(token) {
       const tr = document.createElement('tr');
       tr.setAttribute('data-key', o.key);
       const dl = `/api/buckets/${encodeURIComponent(state.bucket)}/download?key=${encodeURIComponent(o.key)}`;
-      tr.innerHTML = `<td class="name-cell"><a class="icon-link" href="${dl}" title="Download" target="_blank" rel="noopener">📥</a> <span class="file-ico">📄</span>${name}</td><td>${fmtBytes(o.size)}</td><td>${o.last_modified || ''}</td><td class="row-actions"><button class="del-btn" data-key="${encodeURIComponent(o.key)}" title="Delete this file" aria-label="Delete">🗑️</button></td>`;
+      tr.innerHTML = `<td class="name-cell"><a class="icon-link" href="${dl}" title="Download" target="_blank" rel="noopener">📥</a> <span class="file-ico">📄</span>${name}</td><td>${fmtBytes(o.size)}</td><td>${formatLocalDate(o.last_modified)}</td><td class="row-actions"><button class="del-btn" data-key="${encodeURIComponent(o.key)}" title="Delete this file" aria-label="Delete">🗑️</button></td>`;
       rowsEl.appendChild(tr);
       const btn = tr.querySelector('.del-btn');
       btn.onclick = async () => {
@@ -378,7 +397,7 @@ function showPreview(preview) {
     row.innerHTML = `
       <input type="checkbox" class="candidate" data-key="${encodeURIComponent(c.key)}" />
       <div class="path">${c.key}</div>
-      <div class="muted date">${c.last_modified || ''}</div>
+      <div class="muted date">${formatLocalDate(c.last_modified)}</div>
       <div class="muted size">${fmtBytes(c.size)}</div>
     `;
     frag.appendChild(row);
