@@ -334,9 +334,9 @@ async function loadListing(token) {
       tableEl.classList.toggle('folders-only', !hasFiles && hasFolders);
     }
     state.nextToken = data.next_token || null;
-    btnNext.disabled = !state.nextToken;
-    btnPrev.disabled = state.tokenStack.length === 0;
-    renderBreadcrumbs();
+  btnNext.disabled = !state.nextToken;
+  btnPrev.disabled = state.tokenStack.length === 0;
+  renderBreadcrumbsTopBar();
   } finally {
     listingOverlay && listingOverlay.classList.add('hidden');
     if (pagerSpinner) pagerSpinner.classList.add('hidden');
@@ -347,6 +347,34 @@ async function loadListing(token) {
   finally { titleSpinner && titleSpinner.classList.add('hidden'); }
   // load counts asynchronously
   loadCounts().catch(() => {});
+}
+
+// New breadcrumbs renderer that includes Home and uses the title space
+function renderBreadcrumbsTopBar() {
+  const parts = state.prefix ? state.prefix.split('/').filter(Boolean) : [];
+  const crumbs = [{ type: 'home', label: '🏠 home' }];
+  if (state.bucket) crumbs.push({ type: 'bucket', label: `🪣 ${state.bucket}`, prefix: '' });
+  let cur = '';
+  for (const p of parts) { cur += p + '/'; crumbs.push({ type: 'prefix', label: p, prefix: cur }); }
+  const html = crumbs
+    .map((c, i) => `<span class="link" data-type="${c.type}"${c.prefix !== undefined ? ` data-prefix="${c.prefix}"` : ''}>${c.label}</span>${i < crumbs.length-1 ? ' / ' : ''}`)
+    .join('');
+  if (bucketTitleEl) bucketTitleEl.innerHTML = html;
+  if (breadcrumbsEl) { breadcrumbsEl.classList.add('hidden'); breadcrumbsEl.innerHTML = html; }
+  const container = bucketTitleEl || breadcrumbsEl;
+  if (!container) return;
+  [...container.querySelectorAll('.link')].forEach(el => {
+    el.onclick = () => {
+      const type = el.getAttribute('data-type');
+      if (type === 'home') { goHome(); return; }
+      if (type === 'bucket') { state.prefix = ''; }
+      else { state.prefix = el.getAttribute('data-prefix') || ''; }
+      state.tokenStack = [];
+      state.nextToken = null;
+      updateURL();
+      loadListing();
+    };
+  });
 }
 
 function selectBucket(bucket) {

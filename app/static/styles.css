@@ -68,7 +68,7 @@ section#content { flex: 1; padding: 16px; display: flex; flex-direction: column;
 #bucket-actions { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
 #bucket-actions.hidden { display: none; }
 #bucket-actions .actions-row { display: flex; align-items: center; gap: 12px; }
-#bucket-title { margin: 0; margin-right: auto; }
+#bucket-title { margin: 0; margin-right: auto; font-size: 14px; color: var(--muted); font-weight: 500; }
 #breadcrumbs { color: var(--muted); font-size: 14px; margin-left: 2px; }
 #counts { color: var(--muted); font-size: 13px; }
 
