@@ -52,23 +52,56 @@ let state = {
   sortDir: 'desc',
 };
 
-// Format an ISO/RFC3339 datetime into local time without milliseconds
-function formatLocalDate(dt) {
-  if (!dt) return '';
+// Robust date parsing that handles variants like "YYYY-MM-DD HH:MM:SS+00:00"
+function parseDateFlexible(dt) {
+  if (!dt) return null;
+  if (dt instanceof Date) return isNaN(dt.getTime()) ? null : dt;
   try {
-    const d = dt instanceof Date ? dt : new Date(dt);
-    if (isNaN(d.getTime())) return String(dt);
-    // Use user's locale settings; no fractional seconds
-    if (typeof d.toLocaleString === 'function') {
-      // Prefer dateStyle/timeStyle for consistent, localized display
-      return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'medium' });
+    if (typeof dt === 'string') {
+      let s = dt.trim();
+      // Normalize space between date and time to 'T'
+      if (s.length >= 19 && s[10] === ' ') s = s.slice(0, 10) + 'T' + s.slice(11);
+      // Normalize explicit UTC offset +00:00 to Z
+      s = s.replace(/\+00:00$/, 'Z');
+      const d = new Date(s);
+      if (!isNaN(d.getTime())) return d;
     }
-    // Fallback
-    const pad = (n) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    const d2 = new Date(dt);
+    return isNaN(d2.getTime()) ? null : d2;
   } catch (_) {
-    return String(dt);
+    return null;
   }
+}
+
+// Absolute local date-time for tooltip or fallback
+function formatLocalDate(dt) {
+  const d = parseDateFlexible(dt);
+  if (!d) return dt ? String(dt) : '';
+  if (typeof d.toLocaleString === 'function') {
+    return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'medium' });
+  }
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+// Relative time like "2 d ago" / "3 h ago"
+function formatRelativeTime(dt) {
+  const d = parseDateFlexible(dt);
+  if (!d) return '';
+  const now = new Date();
+  let diff = Math.floor((now - d) / 1000); // seconds
+  const future = diff < 0;
+  diff = Math.abs(diff);
+  const min = 60, hour = 3600, day = 86400, month = 2592000, year = 31536000;
+  let val, unit;
+  if (diff < 10) return 'now';
+  if (diff < min) { val = Math.floor(diff); unit = 's'; }
+  else if (diff < hour) { val = Math.floor(diff / min); unit = 'm'; }
+  else if (diff < day) { val = Math.floor(diff / hour); unit = 'h'; }
+  else if (diff < month) { val = Math.floor(diff / day); unit = 'd'; }
+  else if (diff < year) { val = Math.floor(diff / month); unit = 'mo'; }
+  else { val = Math.floor(diff / year); unit = 'y'; }
+  return future ? `in ${val}${unit}` : `${val}${unit} ago`;
 }
 
 // Theme handling (Auto/Light/Dark) with daytime-based auto and persistence
@@ -243,7 +276,10 @@ async function loadListing(token) {
     objs.sort((a, b) => {
       let av, bv;
       if (state.sortKey === 'size') { av = a.size||0; bv = b.size||0; }
-      else if (state.sortKey === 'last_modified') { av = a.last_modified ? Date.parse(a.last_modified) : 0; bv = b.last_modified ? Date.parse(b.last_modified) : 0; }
+      else if (state.sortKey === 'last_modified') {
+        const ad = parseDateFlexible(a.last_modified); const bd = parseDateFlexible(b.last_modified);
+        av = ad ? ad.getTime() : 0; bv = bd ? bd.getTime() : 0;
+      }
       else { av = (a.key||'').toLowerCase(); bv = (b.key||'').toLowerCase(); }
       if (av < bv) return -1*dir; if (av > bv) return 1*dir; return 0;
     });
@@ -253,7 +289,9 @@ async function loadListing(token) {
       const tr = document.createElement('tr');
       tr.setAttribute('data-key', o.key);
       const dl = `/api/buckets/${encodeURIComponent(state.bucket)}/download?key=${encodeURIComponent(o.key)}`;
-      tr.innerHTML = `<td class="name-cell"><a class="icon-link" href="${dl}" title="Download" target="_blank" rel="noopener">📥</a> <span class="file-ico">📄</span>${name}</td><td>${fmtBytes(o.size)}</td><td>${formatLocalDate(o.last_modified)}</td><td class="row-actions"><button class="del-btn" data-key="${encodeURIComponent(o.key)}" title="Delete this file" aria-label="Delete">🗑️</button></td>`;
+      const rel = formatRelativeTime(o.last_modified);
+      const abs = formatLocalDate(o.last_modified);
+      tr.innerHTML = `<td class="name-cell"><a class="icon-link" href="${dl}" title="Download" target="_blank" rel="noopener">📥</a> <span class="file-ico">📄</span>${name}</td><td>${fmtBytes(o.size)}</td><td title="${abs}">${rel || abs}</td><td class="row-actions"><button class="del-btn" data-key="${encodeURIComponent(o.key)}" title="Delete this file" aria-label="Delete">🗑️</button></td>`;
       rowsEl.appendChild(tr);
       const btn = tr.querySelector('.del-btn');
       btn.onclick = async () => {
@@ -394,10 +432,12 @@ function showPreview(preview) {
   preview.candidates.forEach((c, idx) => {
     const row = document.createElement('div');
     row.className = 'preview-item';
+    const rel = formatRelativeTime(c.last_modified);
+    const abs = formatLocalDate(c.last_modified);
     row.innerHTML = `
       <input type="checkbox" class="candidate" data-key="${encodeURIComponent(c.key)}" />
       <div class="path">${c.key}</div>
-      <div class="muted date">${formatLocalDate(c.last_modified)}</div>
+      <div class="muted date" title="${abs}">${rel || abs}</div>
       <div class="muted size">${fmtBytes(c.size)}</div>
     `;
     frag.appendChild(row);
