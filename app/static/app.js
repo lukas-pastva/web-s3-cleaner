@@ -35,7 +35,6 @@ const previewInfo = document.getElementById('preview-info');
 const previewList = document.getElementById('preview-list');
 const selectAll = document.getElementById('select-all');
 const approveSelected = document.getElementById('approve-selected');
-const approveAll = document.getElementById('approve-all');
 const cancelPreview = document.getElementById('cancel-preview');
 // Counts
 const countFilesEl = document.getElementById('count-files');
@@ -508,7 +507,6 @@ function showPreview(preview) {
     if (deleteProgressBar) deleteProgressBar.style.width = '0%';
     if (deleteProgressText) deleteProgressText.textContent = '0%';
   }
-  approveAll.disabled = preview.candidates.length === 0;
   approveSelected.disabled = true;
   selectAll.checked = false;
   setPreviewStatus('Review and approve deletions.');
@@ -530,18 +528,6 @@ function wirePreviewSelection() {
 
 cancelPreview.onclick = () => { hidePreviewModal(); };
 
-approveAll.onclick = async () => {
-  if (!state.preview || !state.bucket) return;
-  const n = state.preview.candidates.length;
-  if (n === 0) return;
-  const noun = state.preview.type === 'smart-folders' ? 'folders' : 'files';
-  if (!confirm(`Approve deletion of ALL ${n} ${noun}?`)) return;
-  if (state.preview.type === 'smart-folders') {
-    await submitFolderDeletions(state.preview.candidates.map(c => c.key));
-  } else {
-    await submitDeletions(state.preview.candidates.map(c => c.key));
-  }
-};
 
 approveSelected.onclick = async () => {
   if (!state.preview || !state.bucket) return;
@@ -563,7 +549,6 @@ async function submitDeletions(keys) {
   boxes.forEach(b => b.disabled = true);
   selectAll.disabled = true;
   approveSelected.disabled = true;
-  approveAll.disabled = true;
   // Show progress
   if (deleteProgress) deleteProgress.classList.remove('hidden');
   let cancelled = false;
@@ -611,7 +596,6 @@ async function submitFolderDeletions(prefixes) {
   boxes.forEach(b => b.disabled = true);
   selectAll.disabled = true;
   approveSelected.disabled = true;
-  approveAll.disabled = true;
   if (deleteProgress) deleteProgress.classList.remove('hidden');
   let cancelled = false;
   const onStop = () => { cancelled = true; deleteStopBtn && (deleteStopBtn.disabled = true); };
