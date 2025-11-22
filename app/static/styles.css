@@ -87,6 +87,12 @@ thead th .sort-icon { opacity: 0.5; margin-left: 4px; font-size: 0.9em; }
 thead th.sorted .sort-icon { opacity: 1; }
 td.row-actions { text-align: right; width: 80px; }
 
+/* If the current listing contains only folders, hide Size/Modified columns */
+#listing table.folders-only th:nth-child(2),
+#listing table.folders-only th:nth-child(3),
+#listing table.folders-only td:nth-child(2),
+#listing table.folders-only td:nth-child(3) { display: none; }
+
 /* Prevent multi-line wrapping for names and ellipsize when constrained */
 .name-cell { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .del-btn { background: transparent; color: var(--danger); border: none; cursor: pointer; padding: 4px 6px; border-radius: 6px; font-size: 16px; }

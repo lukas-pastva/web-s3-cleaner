@@ -260,6 +260,9 @@ async function loadListing(token) {
       return;
     }
     rowsEl.innerHTML = '';
+    // Reset table layout state before rendering
+    const tableEl = listingEl ? listingEl.querySelector('table') : null;
+    if (tableEl) tableEl.classList.remove('folders-only');
     if (listingEl) listingEl.scrollTop = 0;
     // folders first
     data.folders.forEach(f => {
@@ -322,6 +325,12 @@ async function loadListing(token) {
         await submitDeletions([key]);
       };
     });
+    // If this page shows only folders (no files), hide Size/Modified columns
+    if (tableEl) {
+      const hasFiles = Array.isArray(data.objects) && data.objects.length > 0;
+      const hasFolders = Array.isArray(data.folders) && data.folders.length > 0;
+      tableEl.classList.toggle('folders-only', !hasFiles && hasFolders);
+    }
     state.nextToken = data.next_token || null;
     btnNext.disabled = !state.nextToken;
     btnPrev.disabled = state.tokenStack.length === 0;
