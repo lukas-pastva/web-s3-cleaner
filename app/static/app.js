@@ -436,6 +436,8 @@ function selectBucket(bucket) {
   // Switch from landing to listing
   if (landingEl) landingEl.classList.add('hidden');
   if (listingEl) listingEl.classList.remove('hidden');
+  // Hide smart cleanup controls until we determine eligibility from listing
+  updateSmartUIVisibility(false);
   updateURL();
   loadListing();
   // Close sidebar on mobile after selecting a bucket
@@ -910,6 +912,7 @@ window.addEventListener('popstate', (ev) => {
     bucketActionsEl.classList.remove('hidden');
     if (landingEl) landingEl.classList.add('hidden');
     if (listingEl) listingEl.classList.remove('hidden');
+    updateSmartUIVisibility(false);
     loadListing();
   } else {
     // No bucket in path: show landing
@@ -931,6 +934,8 @@ if (initial && initial.bucket) {
   bucketActionsEl.classList.remove('hidden');
   if (landingEl) landingEl.classList.add('hidden');
   if (listingEl) listingEl.classList.remove('hidden');
+  // Hide smart cleanup controls until eligibility is known for this view
+  updateSmartUIVisibility(false);
   loadListing();
 } else {
   // Landing state initially
