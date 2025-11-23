@@ -557,6 +557,8 @@ function showPreview(preview) {
   previewInfo.textContent = `${scope} — ${preview.candidates.length} files planned for deletion ${extra}`;
   // Render list
   previewList.innerHTML = '';
+  // Reset scroll to avoid any sticky header overlap quirks between sessions
+  try { previewList.scrollTop = 0; } catch (_) {}
   // Header row for readability
   const head = document.createElement('div');
   head.className = 'preview-head';
@@ -575,6 +577,9 @@ function showPreview(preview) {
       <div class="muted date" title="${exact}">${rel || abs}</div>
       <div class="muted size">${fmtBytes(c.size)}</div>
     `;
+    // Ensure checkbox is enabled and focusable (in case a previous run disabled it)
+    const cb = row.querySelector('input.candidate');
+    if (cb) { cb.disabled = false; cb.tabIndex = 0; }
     frag.appendChild(row);
   });
   previewList.appendChild(frag);
@@ -848,7 +853,7 @@ function hidePreviewModal() {
   state.preview = null;
   setPreviewStatus('');
   // Reset preview controls to default state
-  if (selectAll) selectAll.disabled = false;
+  if (selectAll) { selectAll.disabled = false; selectAll.checked = false; }
   if (deleteStopBtn) {
     deleteStopBtn.disabled = true;
     deleteStopBtn.onclick = null;

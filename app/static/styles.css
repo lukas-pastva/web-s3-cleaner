@@ -136,6 +136,8 @@ tbody td .link:hover { text-decoration: none; }
 #preview-panel { padding: 16px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; }
 #preview-panel .panel-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 #preview-panel .panel-header .actions { flex-wrap: wrap; row-gap: 6px; }
+#preview-panel input[type="checkbox"] { cursor: pointer; }
+#preview-list input[type="checkbox"] { pointer-events: auto; }
 #preview-panel h3 { margin: 0; font-size: 1rem; }
 #preview-panel .actions { display: flex; align-items: center; gap: 8px; }
 #preview-info { color: var(--muted); margin-top: 8px; }
