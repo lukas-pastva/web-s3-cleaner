@@ -48,7 +48,9 @@ let state = {
   preview: null, // { type: 'smart'|'smart-folders'|'all', bucket, candidates: [...], meta: {...} }
   sortKey: 'last_modified',
   sortDir: 'desc',
-  smartEligible: false, // whether filenames indicate timestamp patterns
+  // Separate eligibility for files vs folders
+  smartEligibleFiles: false,
+  smartEligibleFolders: false,
 };
 
 // Heuristic: does a name contain a timestamp-like pattern?
@@ -64,11 +66,11 @@ function hasTimestampLike(s) {
   return patterns.some(rx => rx.test(s));
 }
 
-function updateSmartUIVisibility(eligible) {
-  state.smartEligible = !!eligible;
-  const hide = !state.smartEligible;
-  if (btnSmartCleanup) btnSmartCleanup.classList.toggle('hidden', hide);
-  if (btnSmartCleanupFolders) btnSmartCleanupFolders.classList.toggle('hidden', hide);
+function updateSmartUIVisibility(filesEligible, foldersEligible) {
+  state.smartEligibleFiles = !!filesEligible;
+  state.smartEligibleFolders = !!foldersEligible;
+  if (btnSmartCleanup) btnSmartCleanup.classList.toggle('hidden', !state.smartEligibleFiles);
+  if (btnSmartCleanupFolders) btnSmartCleanupFolders.classList.toggle('hidden', !state.smartEligibleFolders);
 }
 
 // Robust date parsing that handles variants like "YYYY-MM-DD HH:MM:SS+00:00"
@@ -360,21 +362,19 @@ async function loadListing(token) {
         await submitDeletions([key]);
       };
     });
-    // Decide if smart cleanup should be visible based on names in view (files and folders)
-    const namesForHeuristic = [];
+    // Decide if smart cleanup should be visible based on timestamped files/folders separately
     try {
-      (data.objects || []).forEach(o => {
+      const filesEligible = Array.isArray(data.objects) && data.objects.some(o => {
         const nm = o && o.key ? o.key.split('/').pop() : '';
-        if (nm) namesForHeuristic.push(nm);
+        return nm && hasTimestampLike(nm);
       });
-      (data.folders || []).forEach(f => {
+      const foldersEligible = Array.isArray(data.folders) && data.folders.some(f => {
         const nm = (f || '').replace(state.prefix, '').replace(/\/$/, '');
-        if (nm) namesForHeuristic.push(nm);
+        return nm && hasTimestampLike(nm);
       });
-      const eligible = namesForHeuristic.some(n => hasTimestampLike(n));
-      updateSmartUIVisibility(eligible);
+      updateSmartUIVisibility(filesEligible, foldersEligible);
     } catch (_) {
-      updateSmartUIVisibility(false);
+      updateSmartUIVisibility(false, false);
     }
     // If this page shows only folders (no files), hide Size/Modified columns
     if (tableEl) {
@@ -391,8 +391,8 @@ async function loadListing(token) {
     if (pagerSpinner) pagerSpinner.classList.add('hidden');
     if (pagerEl) pagerEl.classList.toggle('hidden', btnPrev.disabled && btnNext.disabled);
   }
-  // annotate smart-cleanup deletions for visible objects (keep small spinner visible)
-  try { if (state.smartEligible) await annotateSmartMarkers(); }
+  // annotate smart-cleanup markers for visible rows only when relevant
+  try { if (state.smartEligibleFiles || state.smartEligibleFolders) await annotateSmartMarkers(); }
   finally { titleSpinner && titleSpinner.classList.add('hidden'); }
   // load counts asynchronously
   loadCounts().catch(() => {});
@@ -436,7 +436,7 @@ function selectBucket(bucket) {
   if (landingEl) landingEl.classList.add('hidden');
   if (listingEl) listingEl.classList.remove('hidden');
   // Hide smart cleanup controls until we determine eligibility from listing
-  updateSmartUIVisibility(false);
+  updateSmartUIVisibility(false, false);
   updateURL();
   loadListing();
   // Close sidebar on mobile after selecting a bucket
@@ -737,48 +737,56 @@ if (homeLink) homeLink.onclick = (e) => { e.preventDefault(); goHome(); };
 async function annotateSmartMarkers() {
   // Remove previous markers
   [...rowsEl.querySelectorAll('.smart-del')].forEach(el => el.remove());
-  if (!state.bucket || !state.smartEligible) return;
+  if (!state.bucket) return;
   const params = new URLSearchParams();
   if (state.prefix) params.set('prefix', state.prefix);
-  // Objects
-  const res = await fetch(`/api/buckets/${encodeURIComponent(state.bucket)}/smart-cleanup-preview?${params.toString()}`);
-  const data = await res.json();
-  if (!data.error) {
-    const delSet = new Set((data.candidates || []).map(c => c.key));
-    const rows = [...rowsEl.querySelectorAll('tr[data-key]')];
-    rows.forEach(tr => {
-      const key = tr.getAttribute('data-key');
-      if (delSet.has(key)) {
-        const td = tr.querySelector('td.name-cell');
-        if (!td) return;
-        const icon = document.createElement('span');
-        icon.className = 'smart-del';
-        icon.title = 'Will be removed by Smart cleanup';
-        icon.textContent = '⚠️';
-        td.appendChild(document.createTextNode(' '));
-        td.appendChild(icon);
+  // Objects (files) markers
+  if (state.smartEligibleFiles) {
+    try {
+      const res = await fetch(`/api/buckets/${encodeURIComponent(state.bucket)}/smart-cleanup-preview?${params.toString()}`);
+      const data = await res.json();
+      if (!data.error) {
+        const delSet = new Set((data.candidates || []).map(c => c.key));
+        const rows = [...rowsEl.querySelectorAll('tr[data-key]')];
+        rows.forEach(tr => {
+          const key = tr.getAttribute('data-key');
+          if (delSet.has(key)) {
+            const td = tr.querySelector('td.name-cell');
+            if (!td) return;
+            const icon = document.createElement('span');
+            icon.className = 'smart-del';
+            icon.title = 'Will be removed by Smart cleanup';
+            icon.textContent = '⚠️';
+            td.appendChild(document.createTextNode(' '));
+            td.appendChild(icon);
+          }
+        });
       }
-    });
+    } catch (_) { /* ignore markers on error */ }
   }
-  // Folders
-  const res2 = await fetch(`/api/buckets/${encodeURIComponent(state.bucket)}/smart-cleanup-folders-preview?${params.toString()}`);
-  const data2 = await res2.json();
-  if (!data2.error) {
-    const delPfx = new Set((data2.candidates || []).map(c => c.key));
-    const frows = [...rowsEl.querySelectorAll('tr[data-prefix]')];
-    frows.forEach(tr => {
-      const pfx = tr.getAttribute('data-prefix');
-      if (delPfx.has(pfx)) {
-        const td = tr.querySelector('td.name-cell');
-        if (!td) return;
-        const icon = document.createElement('span');
-        icon.className = 'smart-del';
-        icon.title = 'Folder will be removed by Smart cleanup';
-        icon.textContent = '⚠️';
-        td.appendChild(document.createTextNode(' '));
-        td.appendChild(icon);
+  // Folders markers
+  if (state.smartEligibleFolders) {
+    try {
+      const res2 = await fetch(`/api/buckets/${encodeURIComponent(state.bucket)}/smart-cleanup-folders-preview?${params.toString()}`);
+      const data2 = await res2.json();
+      if (!data2.error) {
+        const delPfx = new Set((data2.candidates || []).map(c => c.key));
+        const frows = [...rowsEl.querySelectorAll('tr[data-prefix]')];
+        frows.forEach(tr => {
+          const pfx = tr.getAttribute('data-prefix');
+          if (delPfx.has(pfx)) {
+            const td = tr.querySelector('td.name-cell');
+            if (!td) return;
+            const icon = document.createElement('span');
+            icon.className = 'smart-del';
+            icon.title = 'Folder will be removed by Smart cleanup';
+            icon.textContent = '⚠️';
+            td.appendChild(document.createTextNode(' '));
+            td.appendChild(icon);
+          }
+        });
       }
-    });
+    } catch (_) { /* ignore markers on error */ }
   }
 }
 
@@ -902,7 +910,7 @@ window.addEventListener('popstate', (ev) => {
     bucketActionsEl.classList.remove('hidden');
     if (landingEl) landingEl.classList.add('hidden');
     if (listingEl) listingEl.classList.remove('hidden');
-    updateSmartUIVisibility(false);
+    updateSmartUIVisibility(false, false);
     loadListing();
   } else {
     // No bucket in path: show landing
@@ -925,7 +933,7 @@ if (initial && initial.bucket) {
   if (landingEl) landingEl.classList.add('hidden');
   if (listingEl) listingEl.classList.remove('hidden');
   // Hide smart cleanup controls until eligibility is known for this view
-  updateSmartUIVisibility(false);
+  updateSmartUIVisibility(false, false);
   loadListing();
 } else {
   // Landing state initially
