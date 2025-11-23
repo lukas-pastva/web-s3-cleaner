@@ -5,9 +5,7 @@ from .s3_utils import (
     get_allowed_buckets,
     list_objects_page,
     delete_all_objects,
-    cleanup_old_objects,
     smart_cleanup,
-    cleanup_candidates,
     delete_keys,
     client_for_bucket,
     delete_prefixes,
@@ -70,26 +68,7 @@ def create_app():
         code = 200 if "error" not in result else 500
         return jsonify(result), code
 
-    @app.post("/api/buckets/<bucket>/cleanup")
-    def cleanup(bucket):
-        if not _ensure_allowed(bucket):
-            return jsonify({"error": "Bucket not allowed"}), 400
-        days = request.args.get("days", default=30, type=int)
-        result = cleanup_old_objects(bucket, days=days)
-        code = 200 if "error" not in result else 500
-        return jsonify(result), code
-
-    @app.get("/api/buckets/<bucket>/cleanup-preview")
-    def cleanup_preview(bucket):
-        if not _ensure_allowed(bucket):
-            return jsonify({"error": "Bucket not allowed"}), 400
-        days = request.args.get("days", default=30, type=int)
-        prefix = request.args.get("prefix") or None
-        try:
-            result = cleanup_candidates(bucket=bucket, days=days, prefix=prefix)
-            return jsonify(result)
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
+    # Removed legacy 30+ days cleanup endpoints
 
     @app.post("/api/buckets/<bucket>/smart-cleanup")
     def smart_cleanup_route(bucket):

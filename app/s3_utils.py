@@ -215,67 +215,7 @@ def delete_all_objects(bucket: str) -> Dict:
         return {"error": str(e), "deleted": deleted, "batches": batches}
 
 
-def cleanup_old_objects(bucket: str, days: int = 30) -> Dict:
-    s3 = _client_for_bucket(bucket)
-    paginator = s3.get_paginator("list_objects_v2")
-    threshold = datetime.now(timezone.utc) - timedelta(days=days)
-    deleted = 0
-    scanned = 0
-    batches = 0
-
-    try:
-        for page in paginator.paginate(Bucket=bucket):
-            contents = page.get("Contents", [])
-            if not contents:
-                continue
-            old_keys = [
-                {"Key": o["Key"]}
-                for o in contents
-                if o.get("LastModified") and o["LastModified"] < threshold
-            ]
-            scanned += len(contents)
-            if not old_keys:
-                continue
-
-            for i in range(0, len(old_keys), 1000):
-                chunk = old_keys[i : i + 1000]
-                resp = s3.delete_objects(Bucket=bucket, Delete={"Objects": chunk, "Quiet": True})
-                deleted += len(resp.get("Deleted", []))
-                batches += 1
-
-        return {"deleted": deleted, "scanned": scanned, "batches": batches, "days": days}
-    except ClientError as e:
-        return {"error": str(e), "deleted": deleted, "scanned": scanned, "batches": batches, "days": days}
-
-
-def cleanup_candidates(bucket: str, days: int = 30, prefix: Optional[str] = None) -> Dict:
-    """Return objects older than threshold as candidates for deletion.
-    Optionally filter by Prefix.
-    """
-    s3 = _client_for_bucket(bucket)
-    paginator = s3.get_paginator("list_objects_v2")
-    threshold = datetime.now(timezone.utc) - timedelta(days=days)
-    candidates: List[Dict] = []
-    scanned = 0
-    kwargs = {"Bucket": bucket}
-    if prefix:
-        kwargs["Prefix"] = prefix
-    for page in paginator.paginate(**kwargs):
-        contents = page.get("Contents", [])
-        scanned += len(contents)
-        for o in contents:
-            lm = o.get("LastModified")
-            key = o.get("Key")
-            # Ignore folder placeholders
-            if key and key.endswith("/"):
-                continue
-            if lm and lm < threshold:
-                candidates.append({
-                    "key": key,
-                    "size": o.get("Size", 0),
-                    "last_modified": lm.replace(microsecond=0).isoformat(),
-                })
-    return {"prefix": prefix or "", "days": days, "scanned": scanned, "candidates": candidates}
+# Note: legacy "cleanup older than 30 days" helpers were removed intentionally.
 
 
 def count_prefix(bucket: str, prefix: Optional[str] = None) -> Dict:

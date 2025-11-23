@@ -4,7 +4,7 @@ Web S3 Cleaner
 Simple web app to browse configured S3 buckets and run cleanup actions:
 - Browse objects (with folder-like prefixes)
 - Delete ALL objects in a bucket (triple-confirmed in UI)
-- Cleanup objects older than 30 days
+- Smart cleanup (tiered retention) for files and folders
 
 Configuration
 -------------
@@ -60,7 +60,6 @@ kubectl apply -f k8s/service.yaml
 Notes
 -----
 - Triple confirmation for Delete ALL: two confirms + type bucket name.
-- Cleanup deletes objects with `LastModified < now - 30 days`.
 - Smart cleanup applies tiered retention within a selected prefix:
   - < 7 days: keep 1 per hour
   - 7–30 days: keep 1 per day
@@ -71,7 +70,7 @@ Notes
 
 Approval Flow
 -------------
-- Cleanup and Smart cleanup now run in two steps:
+- Deletion actions (Smart cleanup and Delete ALL) run in two steps:
   1) Preview: the app lists every object that would be deleted under the current scope (bucket root or selected prefix).
   2) Approval: you can approve each file individually (checkboxes) or select all and approve in one step.
 - Deletions are executed only after explicit approval.

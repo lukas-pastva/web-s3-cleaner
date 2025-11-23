@@ -7,7 +7,6 @@ const titleSpinner = document.getElementById('title-spinner');
 const listingOverlay = document.getElementById('listing-overlay');
 const listingEl = document.getElementById('listing');
 const breadcrumbsEl = document.getElementById('breadcrumbs');
-const btnCleanup = document.getElementById('btn-cleanup');
 const btnDeleteAll = document.getElementById('btn-delete-all');
 const btnSmartCleanup = document.getElementById('btn-smart-cleanup');
 const btnSmartCleanupFolders = document.getElementById('btn-smart-cleanup-folders');
@@ -46,7 +45,7 @@ let state = {
   prefix: '',
   tokenStack: [], // for prev
   nextToken: null,
-  preview: null, // { type: 'cleanup'|'smart', bucket, candidates: [{key,size,last_modified}], meta: {...} }
+  preview: null, // { type: 'smart'|'smart-folders'|'all', bucket, candidates: [...], meta: {...} }
   sortKey: 'last_modified',
   sortDir: 'desc',
   smartEligible: false, // whether filenames indicate timestamp patterns
@@ -476,16 +475,7 @@ btnPrev.onclick = () => {
   }
 };
 
-btnCleanup.onclick = async () => {
-  if (!state.bucket) return;
-  setStatus('Preparing cleanup preview...');
-  const params = new URLSearchParams();
-  params.set('days', '30');
-  const res = await fetch(`/api/buckets/${encodeURIComponent(state.bucket)}/cleanup-preview?${params.toString()}`);
-  const data = await res.json();
-  if (data.error) { setStatus(`Error: ${data.error}`, true); return; }
-  showPreview({ type: 'cleanup', bucket: state.bucket, candidates: data.candidates, meta: { days: data.days, prefix: data.prefix } });
-};
+// Legacy 30+ days cleanup removed
 
 btnDeleteAll.onclick = async () => {
   if (!state.bucket) return;
@@ -563,7 +553,7 @@ function showPreview(preview) {
   state.preview = preview;
   // Render basic info
   const scope = preview.meta.prefix ? `Prefix "${preview.meta.prefix}"` : 'Entire bucket';
-  const extra = preview.type === 'cleanup' ? `(> ${preview.meta.days} days)` : '(smart policy)';
+  const extra = (preview.type === 'smart' || preview.type === 'smart-folders') ? '(smart policy)' : '';
   previewInfo.textContent = `${scope} — ${preview.candidates.length} files planned for deletion ${extra}`;
   // Render list
   previewList.innerHTML = '';
