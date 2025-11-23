@@ -587,7 +587,15 @@ function showPreview(preview) {
     if (deleteProgressText) deleteProgressText.textContent = '0%';
   }
   approveSelected.disabled = true;
-  selectAll.checked = false;
+  // Ensure controls are enabled for a fresh preview session
+  if (selectAll) {
+    selectAll.disabled = false;
+    selectAll.checked = false;
+  }
+  if (deleteStopBtn) {
+    deleteStopBtn.disabled = true;
+    deleteStopBtn.onclick = null;
+  }
   setPreviewStatus('Review and approve deletions.');
   wirePreviewSelection();
 }
@@ -839,6 +847,12 @@ function hidePreviewModal() {
   if (previewModal) previewModal.classList.add('hidden');
   state.preview = null;
   setPreviewStatus('');
+  // Reset preview controls to default state
+  if (selectAll) selectAll.disabled = false;
+  if (deleteStopBtn) {
+    deleteStopBtn.disabled = true;
+    deleteStopBtn.onclick = null;
+  }
 }
 
 // Close modal when clicking outside dialog or pressing Escape
