@@ -49,7 +49,28 @@ let state = {
   preview: null, // { type: 'cleanup'|'smart', bucket, candidates: [{key,size,last_modified}], meta: {...} }
   sortKey: 'last_modified',
   sortDir: 'desc',
+  smartEligible: false, // whether filenames indicate timestamp patterns
 };
+
+// Heuristic: does a name contain a timestamp-like pattern?
+function hasTimestampLike(s) {
+  if (!s) return false;
+  // Typical patterns: YYYY-MM-DD[[_|T]HH[:|-]MM([:|-]SS)?], YYYYMMDD([T]HHMMSS)?
+  const patterns = [
+    /\b\d{4}-\d{2}-\d{2}[T_ ]\d{2}[:\-]\d{2}(?::\d{2})?\b/, // 2025-05-02T06:17[:48]
+    /\b\d{8}[T_ ]?\d{6}\b/,                                   // 20250502T061748 or 20250502 061748
+    /\b\d{4}-\d{2}-\d{2}\b/,                                  // 2025-05-02
+    /\b\d{8}\b/,                                               // 20250502
+  ];
+  return patterns.some(rx => rx.test(s));
+}
+
+function updateSmartUIVisibility(eligible) {
+  state.smartEligible = !!eligible;
+  const hide = !state.smartEligible;
+  if (btnSmartCleanup) btnSmartCleanup.classList.toggle('hidden', hide);
+  if (btnSmartCleanupFolders) btnSmartCleanupFolders.classList.toggle('hidden', hide);
+}
 
 // Robust date parsing that handles variants like "YYYY-MM-DD HH:MM:SS+00:00"
 function parseDateFlexible(dt) {
@@ -340,6 +361,22 @@ async function loadListing(token) {
         await submitDeletions([key]);
       };
     });
+    // Decide if smart cleanup should be visible based on names in view (files and folders)
+    const namesForHeuristic = [];
+    try {
+      (data.objects || []).forEach(o => {
+        const nm = o && o.key ? o.key.split('/').pop() : '';
+        if (nm) namesForHeuristic.push(nm);
+      });
+      (data.folders || []).forEach(f => {
+        const nm = (f || '').replace(state.prefix, '').replace(/\/$/, '');
+        if (nm) namesForHeuristic.push(nm);
+      });
+      const eligible = namesForHeuristic.some(n => hasTimestampLike(n));
+      updateSmartUIVisibility(eligible);
+    } catch (_) {
+      updateSmartUIVisibility(false);
+    }
     // If this page shows only folders (no files), hide Size/Modified columns
     if (tableEl) {
       const hasFiles = Array.isArray(data.objects) && data.objects.length > 0;
@@ -356,7 +393,7 @@ async function loadListing(token) {
     if (pagerEl) pagerEl.classList.toggle('hidden', btnPrev.disabled && btnNext.disabled);
   }
   // annotate smart-cleanup deletions for visible objects (keep small spinner visible)
-  try { await annotateSmartMarkers(); }
+  try { if (state.smartEligible) await annotateSmartMarkers(); }
   finally { titleSpinner && titleSpinner.classList.add('hidden'); }
   // load counts asynchronously
   loadCounts().catch(() => {});
@@ -441,7 +478,6 @@ btnCleanup.onclick = async () => {
   if (!state.bucket) return;
   setStatus('Preparing cleanup preview...');
   const params = new URLSearchParams();
-  if (state.prefix) params.set('prefix', state.prefix);
   params.set('days', '30');
   const res = await fetch(`/api/buckets/${encodeURIComponent(state.bucket)}/cleanup-preview?${params.toString()}`);
   const data = await res.json();
@@ -709,7 +745,7 @@ if (homeLink) homeLink.onclick = (e) => { e.preventDefault(); goHome(); };
 async function annotateSmartMarkers() {
   // Remove previous markers
   [...rowsEl.querySelectorAll('.smart-del')].forEach(el => el.remove());
-  if (!state.bucket) return;
+  if (!state.bucket || !state.smartEligible) return;
   const params = new URLSearchParams();
   if (state.prefix) params.set('prefix', state.prefix);
   // Objects
