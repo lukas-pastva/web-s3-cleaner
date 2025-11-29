@@ -58,10 +58,12 @@ function hasTimestampLike(s) {
   if (!s) return false;
   // Typical patterns: YYYY-MM-DD[[_|T]HH[:|-]MM([:|-]SS)?], YYYYMMDD([T]HHMMSS)?
   const patterns = [
-    /\b\d{4}-\d{2}-\d{2}[T_ ]\d{2}[:\-]\d{2}(?::\d{2})?\b/, // 2025-05-02T06:17[:48]
-    /\b\d{8}[T_ ]?\d{6}\b/,                                   // 20250502T061748 or 20250502 061748
-    /\b\d{4}-\d{2}-\d{2}\b/,                                  // 2025-05-02
-    /\b\d{8}\b/,                                               // 20250502
+    /\b\d{4}-\d{2}-\d{2}[T_ ]\d{1,2}[:\-]\d{2}(?:[:\-]\d{2})?\b/, // 2025-05-02_6-17[-|:]48
+    /\b\d{8}[T_ ]?\d{6}\b/,                                        // 20250502T061748 or 20250502 061748
+    /\b\d{4}-\d{2}-\d{2}\b/,                                       // 2025-05-02
+    /\b\d{8}\b/,                                                    // 20250502
+    /(?<!\d)\d{10}(?!\d)/,                                          // Unix epoch seconds
+    /(?<!\d)\d{13}(?!\d)/,                                          // Unix epoch milliseconds
   ];
   return patterns.some(rx => rx.test(s));
 }

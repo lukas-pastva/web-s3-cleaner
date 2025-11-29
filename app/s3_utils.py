@@ -405,6 +405,7 @@ def delete_prefixes(bucket: str, prefixes: List[str]) -> Dict:
     return {"deleted": total_deleted, "batches": total_batches, "prefixes": len(prefixes)}
 
 
+# Legacy constant retained for backward compatibility; not used directly.
 _TS_PATTERNS = [
     # ISO-like
     (re.compile(r"^(\d{4})-(\d{2})-(\d{2})[T_](\d{2}):(\d{2}):(\d{2})$"), "%Y-%m-%dT%H:%M:%S"),
@@ -433,18 +434,18 @@ def _parse_timestamp(name: str) -> Optional[datetime]:
 
     # Try patterns with date and time (with seconds)
     pats = [
-        # YYYY-MM-DD[_|T]HH-MM-SS
-        (re.compile(r"(\d{4}-\d{2}-\d{2})[T_](\d{2})-(\d{2})-(\d{2})"), "ymd_hms_dash"),
-        # YYYY-MM-DD[_|T]HH:MM:SS
-        (re.compile(r"(\d{4}-\d{2}-\d{2})[T_](\d{2}):(\d{2}):(\d{2})"), "ymd_hms_colon"),
-        # YYYY-MM-DD[_|T]HH-MM
-        (re.compile(r"(\d{4}-\d{2}-\d{2})[T_](\d{2})-(\d{2})(?![-:\d])"), "ymd_hm_dash"),
-        # YYYYMMDD[T]?HHMMSS
+        # YYYY-MM-DD[ _|T]H[-|:]MM[-|:]SS (allow single-digit hour via 'G' and mixed separators)
+        (re.compile(r"(\d{4}-\d{2}-\d{2})[T_ ](\d{1,2})[-:](\d{2})[-:](\d{2})"), "ymd_hms_mixed"),
+        # YYYY-MM-DD[ _|T]H[-|:]MM (no seconds)
+        (re.compile(r"(\d{4}-\d{2}-\d{2})[T_ ](\d{1,2})[-:](\d{2})(?![-:\d])"), "ymd_hm_mixed"),
+        # YYYY-MM-DD[ _|T]HH:MM:SS (strict colons)
+        (re.compile(r"(\d{4}-\d{2}-\d{2})[T_ ](\d{2}):(\d{2}):(\d{2})"), "ymd_hms_colon"),
+        # Compact forms: YYYYMMDD[T|_]?HHMMSS
         (re.compile(r"(\d{8})[T_]?(\d{6})"), "ymd_compact_hms"),
         # YYYYMMDD
         (re.compile(r"(\d{8})(?!\d)"), "ymd_compact"),
         # YYYY-MM-DD
-        (re.compile(r"(\d{4}-\d{2}-\d{2})(?![\dT_])"), "ymd"),
+        (re.compile(r"(\d{4}-\d{2}-\d{2})(?![\dT_ ])"), "ymd"),
     ]
 
     for rx, kind in pats:
@@ -456,15 +457,16 @@ def _parse_timestamp(name: str) -> Optional[datetime]:
         if not m:
             continue
         try:
-            if kind == "ymd_hms_dash":
+            if kind == "ymd_hms_mixed":
                 ymd, hh, mm, ss = m.groups()
-                dt = datetime.strptime(f"{ymd}T{hh}:{mm}:{ss}", "%Y-%m-%dT%H:%M:%S")
+                # Normalize to ISO
+                dt = datetime.strptime(f"{ymd}T{int(hh):02d}:{mm}:{ss}", "%Y-%m-%dT%H:%M:%S")
             elif kind == "ymd_hms_colon":
                 ymd, hh, mm, ss = m.groups()
                 dt = datetime.strptime(f"{ymd}T{hh}:{mm}:{ss}", "%Y-%m-%dT%H:%M:%S")
-            elif kind == "ymd_hm_dash":
+            elif kind == "ymd_hm_mixed":
                 ymd, hh, mm = m.groups()
-                dt = datetime.strptime(f"{ymd}T{hh}:{mm}", "%Y-%m-%dT%H:%M")
+                dt = datetime.strptime(f"{ymd}T{int(hh):02d}:{mm}", "%Y-%m-%dT%H:%M")
             elif kind == "ymd_compact_hms":
                 ymd, hms = m.groups()
                 dt = datetime.strptime(f"{ymd}T{hms}", "%Y%m%dT%H%M%S")
@@ -477,6 +479,25 @@ def _parse_timestamp(name: str) -> Optional[datetime]:
             return dt.replace(tzinfo=timezone.utc)
         except Exception:
             continue
+
+    # Fallback: Unix timestamp embedded (10-digit seconds or 13-digit milliseconds)
+    # Prefer the last occurrence to avoid early IDs.
+    # Validate range to avoid matching arbitrary numbers (year 2000..2100).
+    epoch_matches = []
+    for rx in (re.compile(r"(?<!\d)(\d{13})(?!\d)"), re.compile(r"(?<!\d)(\d{10})(?!\d)")):
+        epoch_matches.extend(list(rx.finditer(s)))
+    if epoch_matches:
+        m = epoch_matches[-1]
+        raw = m.group(1)
+        try:
+            val = int(raw)
+            if len(raw) == 13:
+                val = val / 1000.0
+            dt = datetime.fromtimestamp(val, tz=timezone.utc)
+            if 2000 <= dt.year <= 2100:
+                return dt
+        except Exception:
+            pass
 
     return None
 
