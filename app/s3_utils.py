@@ -342,15 +342,19 @@ def smart_cleanup(bucket: str, prefix: Optional[str] = None, dry_run: bool = Fal
             "monthly": ">= 365 days",
         },
         # full candidate list for preview/approval
-        "candidates": [
-            {
-                "key": o["key"],
-                "size": o["size"],
-                "last_modified": o["last_modified"].replace(microsecond=0).isoformat(),
-            }
-            for o in to_delete
-        ],
+        "candidates": [],
     }
+    # Attach policy details per candidate
+    for o in to_delete:
+        tier, bid = tier_and_bucket(o["last_modified"])
+        result["candidates"].append({
+            "key": o["key"],
+            "size": o["size"],
+            "last_modified": o["last_modified"].replace(microsecond=0).isoformat(),
+            "policy_tier": tier,
+            "policy_bucket_id": bid,
+            "policy_reason": f"Not newest for {tier} bucket {bid}",
+        })
     return result
 
 
@@ -580,7 +584,7 @@ def smart_cleanup_folders(bucket: str, parent_prefix: Optional[str] = None, dry_
             deleted += res.get("deleted", 0)
             batches += res.get("batches", 0)
 
-    return {
+    result = {
         "prefix": parent_prefix or "",
         "scanned_folders": scanned,
         "considered_folders": len(folders),
@@ -595,8 +599,16 @@ def smart_cleanup_folders(bucket: str, parent_prefix: Optional[str] = None, dry_
             "biweekly": "90–365 days",
             "monthly": ">= 365 days",
         },
-        "candidates": [
-            {"key": f["prefix"], "last_modified": f["ts"].isoformat(), "size": None}
-            for f in to_delete
-        ],
+        "candidates": [],
     }
+    for f in to_delete:
+        tier, bid = tier_and_bucket(f["ts"])
+        result["candidates"].append({
+            "key": f["prefix"],
+            "last_modified": f["ts"].isoformat(),
+            "size": None,
+            "policy_tier": tier,
+            "policy_bucket_id": bid,
+            "policy_reason": f"Not newest for {tier} bucket {bid}",
+        })
+    return result

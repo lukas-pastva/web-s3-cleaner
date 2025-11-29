@@ -761,7 +761,9 @@ async function annotateSmartMarkers() {
       const res = await fetch(`/api/buckets/${encodeURIComponent(state.bucket)}/smart-cleanup-preview?${params.toString()}`);
       const data = await res.json();
       if (!data.error) {
-        const delSet = new Set((data.candidates || []).map(c => c.key));
+        const cand = Array.isArray(data.candidates) ? data.candidates : [];
+        const delSet = new Set(cand.map(c => c.key));
+        const reasons = new Map(cand.map(c => [c.key, c.policy_reason || (c.policy_tier && c.policy_bucket_id ? `Not newest for ${c.policy_tier} bucket ${c.policy_bucket_id}` : 'Will be removed by Smart cleanup')]));
         const rows = [...rowsEl.querySelectorAll('tr[data-key]')];
         rows.forEach(tr => {
           const key = tr.getAttribute('data-key');
@@ -770,7 +772,7 @@ async function annotateSmartMarkers() {
             if (!td) return;
             const icon = document.createElement('span');
             icon.className = 'smart-del';
-            icon.title = 'Will be removed by Smart cleanup';
+            icon.title = reasons.get(key) || 'Will be removed by Smart cleanup';
             icon.textContent = '⚠️';
             td.appendChild(document.createTextNode(' '));
             td.appendChild(icon);
@@ -785,7 +787,9 @@ async function annotateSmartMarkers() {
       const res2 = await fetch(`/api/buckets/${encodeURIComponent(state.bucket)}/smart-cleanup-folders-preview?${params.toString()}`);
       const data2 = await res2.json();
       if (!data2.error) {
-        const delPfx = new Set((data2.candidates || []).map(c => c.key));
+        const cand2 = Array.isArray(data2.candidates) ? data2.candidates : [];
+        const delPfx = new Set(cand2.map(c => c.key));
+        const reasons2 = new Map(cand2.map(c => [c.key, c.policy_reason || (c.policy_tier && c.policy_bucket_id ? `Not newest for ${c.policy_tier} bucket ${c.policy_bucket_id}` : 'Folder will be removed by Smart cleanup')]));
         const frows = [...rowsEl.querySelectorAll('tr[data-prefix]')];
         frows.forEach(tr => {
           const pfx = tr.getAttribute('data-prefix');
@@ -794,7 +798,7 @@ async function annotateSmartMarkers() {
             if (!td) return;
             const icon = document.createElement('span');
             icon.className = 'smart-del';
-            icon.title = 'Folder will be removed by Smart cleanup';
+            icon.title = reasons2.get(pfx) || 'Folder will be removed by Smart cleanup';
             icon.textContent = '⚠️';
             td.appendChild(document.createTextNode(' '));
             td.appendChild(icon);
