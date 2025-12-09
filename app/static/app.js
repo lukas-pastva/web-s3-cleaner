@@ -10,6 +10,7 @@ const breadcrumbsEl = document.getElementById('breadcrumbs');
 const btnDeleteAll = document.getElementById('btn-delete-all');
 const btnSmartCleanup = document.getElementById('btn-smart-cleanup');
 const btnSmartCleanupFolders = document.getElementById('btn-smart-cleanup-folders');
+const btnRefresh = document.getElementById('btn-refresh');
 const btnPrev = document.getElementById('prev');
 const btnNext = document.getElementById('next');
 const pagerSpinner = document.getElementById('pager-spinner');
@@ -39,6 +40,28 @@ const cancelPreview = document.getElementById('cancel-preview');
 const countFilesEl = document.getElementById('count-files');
 const countFoldersEl = document.getElementById('count-folders');
 const countSpinner = document.getElementById('count-spinner');
+
+// Auto-refresh config for listing view
+const LISTING_REFRESH_MS = 30000; // 30s
+let listingAutoTimer = null;
+let listingLoading = false;
+
+function startListingAutoRefresh() {
+  if (listingAutoTimer) { clearInterval(listingAutoTimer); listingAutoTimer = null; }
+  listingAutoTimer = setInterval(() => {
+    if (state.bucket && !listingLoading) {
+      // Avoid overlapping loads
+      try { loadListing(); } catch (_) {}
+    }
+  }, LISTING_REFRESH_MS);
+}
+
+function stopListingAutoRefresh() {
+  if (listingAutoTimer) {
+    clearInterval(listingAutoTimer);
+    listingAutoTimer = null;
+  }
+}
 
 let state = {
   bucket: null,
@@ -270,6 +293,8 @@ function renderBreadcrumbs() {
 
 async function loadListing(token) {
   if (!state.bucket) return;
+  if (listingLoading) return;
+  listingLoading = true;
   setStatus('');
   titleSpinner && titleSpinner.classList.remove('hidden');
   listingOverlay && listingOverlay.classList.remove('hidden');
@@ -395,7 +420,10 @@ async function loadListing(token) {
   }
   // annotate smart-cleanup markers for visible rows only when relevant
   try { if (state.smartEligibleFiles || state.smartEligibleFolders) await annotateSmartMarkers(); }
-  finally { titleSpinner && titleSpinner.classList.add('hidden'); }
+  finally {
+    titleSpinner && titleSpinner.classList.add('hidden');
+    listingLoading = false;
+  }
   // load counts asynchronously
   loadCounts().catch(() => {});
 }
@@ -441,6 +469,7 @@ function selectBucket(bucket) {
   updateSmartUIVisibility(false, false);
   updateURL();
   loadListing();
+  startListingAutoRefresh();
   // Close sidebar on mobile after selecting a bucket
   closeSidebar();
 }
@@ -456,6 +485,7 @@ function goHome() {
   if (listingEl) listingEl.classList.add('hidden');
   if (previewModal && !previewModal.classList.contains('hidden')) hidePreviewModal();
   setStatus('');
+  stopListingAutoRefresh();
   history.pushState({}, '', '/');
   closeSidebar();
 }
@@ -937,6 +967,7 @@ window.addEventListener('popstate', (ev) => {
     if (listingEl) listingEl.classList.remove('hidden');
     updateSmartUIVisibility(false, false);
     loadListing();
+    startListingAutoRefresh();
   } else {
     // No bucket in path: show landing
     state.bucket = null;
@@ -944,6 +975,7 @@ window.addEventListener('popstate', (ev) => {
     if (bucketActionsEl) bucketActionsEl.classList.add('hidden');
     if (landingEl) landingEl.classList.remove('hidden');
     if (listingEl) listingEl.classList.add('hidden');
+    stopListingAutoRefresh();
   }
 });
 
@@ -960,8 +992,13 @@ if (initial && initial.bucket) {
   // Hide smart cleanup controls until eligibility is known for this view
   updateSmartUIVisibility(false, false);
   loadListing();
+  startListingAutoRefresh();
 } else {
   // Landing state initially
   if (landingEl) landingEl.classList.remove('hidden');
   if (listingEl) listingEl.classList.add('hidden');
+  stopListingAutoRefresh();
 }
+
+// Manual refresh action
+if (btnRefresh) btnRefresh.onclick = () => { if (state.bucket) loadListing(); };
