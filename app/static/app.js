@@ -513,6 +513,7 @@ btnDeleteAll.onclick = async () => {
   if (!state.bucket) return;
   // Preview ALL files within current scope (bucket or prefix), similar to Smart cleanup
   setStatus('Preparing delete-all preview...');
+  listingOverlay && listingOverlay.classList.remove('hidden');
   try {
     const candidates = await collectAllObjects(state.bucket, state.prefix);
     showPreview({ type: 'all', bucket: state.bucket, candidates, meta: { prefix: state.prefix } });
@@ -524,6 +525,8 @@ btnDeleteAll.onclick = async () => {
     setStatus('');
   } catch (e) {
     setStatus(`Error: ${e && e.message ? e.message : String(e)}`, true);
+  } finally {
+    listingOverlay && listingOverlay.classList.add('hidden');
   }
 };
 
@@ -560,24 +563,36 @@ async function collectAllObjects(bucket, prefix) {
 btnSmartCleanup.onclick = async () => {
   if (!state.bucket) return;
   setStatus('Preparing smart cleanup preview...');
-  const params = new URLSearchParams();
-  if (state.prefix) params.set('prefix', state.prefix);
-  const res = await fetch(`/api/buckets/${encodeURIComponent(state.bucket)}/smart-cleanup-preview?${params.toString()}`);
-  const data = await res.json();
-  if (data.error) { setStatus(`Error: ${data.error}`, true); return; }
-  showPreview({ type: 'smart', bucket: state.bucket, candidates: data.candidates, meta: { prefix: data.prefix, policy: data.policy, kept: data.kept, scanned: data.scanned } });
+  listingOverlay && listingOverlay.classList.remove('hidden');
+  try {
+    const params = new URLSearchParams();
+    if (state.prefix) params.set('prefix', state.prefix);
+    const res = await fetch(`/api/buckets/${encodeURIComponent(state.bucket)}/smart-cleanup-preview?${params.toString()}`);
+    const data = await res.json();
+    if (data.error) { setStatus(`Error: ${data.error}`, true); return; }
+    setStatus('');
+    showPreview({ type: 'smart', bucket: state.bucket, candidates: data.candidates, meta: { prefix: data.prefix, policy: data.policy, kept: data.kept, scanned: data.scanned } });
+  } finally {
+    listingOverlay && listingOverlay.classList.add('hidden');
+  }
 };
 
 if (btnSmartCleanupFolders) {
   btnSmartCleanupFolders.onclick = async () => {
     if (!state.bucket) return;
     setStatus('Preparing folder smart cleanup preview...');
-    const params = new URLSearchParams();
-    if (state.prefix) params.set('prefix', state.prefix);
-    const res = await fetch(`/api/buckets/${encodeURIComponent(state.bucket)}/smart-cleanup-folders-preview?${params.toString()}`);
-    const data = await res.json();
-    if (data.error) { setStatus(`Error: ${data.error}`, true); return; }
-    showPreview({ type: 'smart-folders', bucket: state.bucket, candidates: data.candidates, meta: { prefix: data.prefix, policy: data.policy, kept: data.kept, scanned: data.scanned_folders } });
+    listingOverlay && listingOverlay.classList.remove('hidden');
+    try {
+      const params = new URLSearchParams();
+      if (state.prefix) params.set('prefix', state.prefix);
+      const res = await fetch(`/api/buckets/${encodeURIComponent(state.bucket)}/smart-cleanup-folders-preview?${params.toString()}`);
+      const data = await res.json();
+      if (data.error) { setStatus(`Error: ${data.error}`, true); return; }
+      setStatus('');
+      showPreview({ type: 'smart-folders', bucket: state.bucket, candidates: data.candidates, meta: { prefix: data.prefix, policy: data.policy, kept: data.kept, scanned: data.scanned_folders } });
+    } finally {
+      listingOverlay && listingOverlay.classList.add('hidden');
+    }
   };
 }
 
