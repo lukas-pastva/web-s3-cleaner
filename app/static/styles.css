@@ -351,6 +351,41 @@ button.danger:hover {
   box-shadow: 0 4px 16px var(--danger-glow);
 }
 
+/* Checkbox styled as button */
+.btn-label {
+  background: var(--button);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 10px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.btn-label:hover {
+  background: var(--button-hover);
+  border-color: var(--border-light);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-label:active {
+  transform: translateY(0);
+}
+
+.btn-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  cursor: pointer;
+}
+
 /* Tables */
 table {
   width: 100%;
