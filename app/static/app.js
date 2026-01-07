@@ -803,9 +803,8 @@ async function annotateSmartMarkers() {
             const icon = document.createElement('span');
             icon.className = 'smart-del';
             icon.title = reasons.get(key) || 'Will be removed by Smart cleanup';
-            icon.textContent = '⚠️';
-            td.appendChild(document.createTextNode(' '));
-            td.appendChild(icon);
+            icon.textContent = '🧹';
+            td.insertBefore(icon, td.firstChild);
           }
         });
       }
@@ -829,9 +828,8 @@ async function annotateSmartMarkers() {
             const icon = document.createElement('span');
             icon.className = 'smart-del';
             icon.title = reasons2.get(pfx) || 'Folder will be removed by Smart cleanup';
-            icon.textContent = '⚠️';
-            td.appendChild(document.createTextNode(' '));
-            td.appendChild(icon);
+            icon.textContent = '🧹';
+            td.insertBefore(icon, td.firstChild);
           }
         });
       }
