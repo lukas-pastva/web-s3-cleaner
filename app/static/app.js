@@ -804,7 +804,7 @@ async function annotateSmartMarkers() {
             icon.className = 'smart-del';
             icon.title = reasons.get(key) || 'Will be removed by Smart cleanup';
             icon.textContent = '🧹';
-            td.insertBefore(icon, td.firstChild);
+            td.appendChild(icon);
           }
         });
       }
@@ -829,7 +829,7 @@ async function annotateSmartMarkers() {
             icon.className = 'smart-del';
             icon.title = reasons2.get(pfx) || 'Folder will be removed by Smart cleanup';
             icon.textContent = '🧹';
-            td.insertBefore(icon, td.firstChild);
+            td.appendChild(icon);
           }
         });
       }
