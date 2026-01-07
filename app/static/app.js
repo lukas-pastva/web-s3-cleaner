@@ -700,7 +700,7 @@ async function submitDeletions(keys) {
   let processed = 0;
   let totalDeleted = 0;
   let totalBatches = 0;
-  const chunkSize = 50;
+  const chunkSize = 10;
   for (let i = 0; i < keys.length; i += chunkSize) {
     if (cancelled) break;
     const chunk = keys.slice(i, i + chunkSize);
