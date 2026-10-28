@@ -59,6 +59,7 @@ kubectl apply -f k8s/service.yaml
 
 Notes
 -----
+- File downloads (`/api/buckets/<bucket>/download?key=...`) are streamed **through the app**, not redirected to a presigned S3 URL, so the browser only talks to the app's own domain and never needs to trust the S3 endpoint's TLS certificate.
 - Triple confirmation for Delete ALL: two confirms + type bucket name.
 - Smart cleanup applies tiered retention within a selected prefix:
   - < 7 days: keep 1 per hour

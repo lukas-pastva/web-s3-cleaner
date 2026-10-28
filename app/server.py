@@ -1,6 +1,9 @@
 import os
+import re
 import hashlib
-from flask import Flask, jsonify, request, redirect, render_template
+from urllib.parse import quote
+from botocore.exceptions import ClientError
+from flask import Flask, jsonify, request, render_template, Response, stream_with_context
 from .s3_utils import (
     get_allowed_buckets,
     list_objects_page,
@@ -167,24 +170,59 @@ def create_app():
 
     @app.get("/api/buckets/<bucket>/download")
     def download_object(bucket):
+        """Stream the object through this app (proxy download).
+
+        Until 2026-10 this answered with a 302 redirect to a presigned S3 URL, so the
+        browser fetched the file straight from the S3 endpoint (e.g.
+        hel1.your-objectstorage.com). Some client machines do not trust that
+        endpoint's certificate chain (NET::ERR_CERT_AUTHORITY_INVALID) and the
+        download failed. Proxying the bytes means the browser only ever talks to
+        this app's own domain, which is already behind oauth2 and a trusted cert.
+        """
         if not _ensure_allowed(bucket):
             return jsonify({"error": "Bucket not allowed"}), 400
         key = request.args.get("key")
         if not key:
             return jsonify({"error": "Missing key"}), 400
         disposition = request.args.get("disposition", default="attachment")
+        if disposition not in ("attachment", "inline"):
+            disposition = "attachment"
         try:
             s3 = client_for_bucket(bucket)
-            filename = key.split("/")[-1] or "download"
-            params = {
-                "Bucket": bucket,
-                "Key": key,
-                "ResponseContentDisposition": f"{disposition}; filename=\"{filename}\"",
-            }
-            url = s3.generate_presigned_url("get_object", Params=params, ExpiresIn=300)
-            return redirect(url, code=302)
+            obj = s3.get_object(Bucket=bucket, Key=key)
+        except ClientError as e:
+            code = (getattr(e, "response", None) or {}).get("Error", {}).get("Code", "")
+            if code in ("NoSuchKey", "NotFound", "404"):
+                return jsonify({"error": "Object not found"}), 404
+            return jsonify({"error": str(e)}), 500
         except Exception as e:
             return jsonify({"error": str(e)}), 500
+
+        filename = key.split("/")[-1] or "download"
+        # ASCII fallback for old clients + RFC 5987 UTF-8 name; strip CR/LF/quotes (header safety)
+        ascii_name = re.sub(r'[\r\n"]', "", filename.encode("ascii", "replace").decode("ascii"))
+        content_disposition = f"{disposition}; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(filename)}"
+
+        body = obj["Body"]
+
+        def generate():
+            try:
+                for chunk in body.iter_chunks(chunk_size=1024 * 1024):
+                    yield chunk
+            finally:
+                try:
+                    body.close()
+                except Exception:
+                    pass
+
+        headers = {
+            "Content-Disposition": content_disposition,
+            "Content-Type": obj.get("ContentType") or "application/octet-stream",
+            "Cache-Control": "no-store",
+        }
+        if obj.get("ContentLength") is not None:
+            headers["Content-Length"] = str(obj["ContentLength"])
+        return Response(stream_with_context(generate()), headers=headers)
 
     return app
 
